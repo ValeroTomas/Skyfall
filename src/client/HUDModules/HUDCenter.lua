@@ -9,6 +9,10 @@ function HUD_Center.Init(screenGui, sharedFolder)
 	local Utils = require(script.Parent.HUDUtils)
 	local Localization = require(sharedFolder:WaitForChild("Localization"))
 	local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
+	
+	-- IMPORTAR DECAL MANAGER
+	local DecalManager = require(sharedFolder:WaitForChild("DecalManager"))
+	
 	local playerLang = LocalizationService.RobloxLocaleId:sub(1, 2)
 	local player = Players.LocalPlayer
 
@@ -16,23 +20,15 @@ function HUD_Center.Init(screenGui, sharedFolder)
 	local countdownEvent = ReplicatedStorage:WaitForChild("CountdownEvent")
 	local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
 	local killfeedEvent = ReplicatedStorage:WaitForChild("KillfeedEvent")
-	local rewardEvent = ReplicatedStorage:WaitForChild("RewardEvent") -- Para el feed
+	local rewardEvent = ReplicatedStorage:WaitForChild("RewardEvent") 
 
+	-- USAR MANAGER (Sin precarga manual, ya lo hizo LoadingController)
 	local COUNTDOWN_IMAGES = {
-		[3]    = "rbxassetid://82880615630562",
-		[2]    = "rbxassetid://106151002747016",
-		[1]    = "rbxassetid://81413356718779",
-		["GO"] = "rbxassetid://109998882050960"
+		[3]    = DecalManager.Get("Count3"),
+		[2]    = DecalManager.Get("Count2"),
+		[1]    = DecalManager.Get("Count1"),
+		["GO"] = DecalManager.Get("CountGo")
 	}
-
-	-- PRELOAD
-	task.spawn(function()
-		local assets = {}
-		for _, id in pairs(COUNTDOWN_IMAGES) do
-			local i = Instance.new("ImageLabel"); i.Image = id; table.insert(assets, i)
-		end
-		game:GetService("ContentProvider"):PreloadAsync(assets)
-	end)
 
 	---------------------------------------------------------------------------------
 	-- 1. CUENTA REGRESIVA
@@ -62,6 +58,7 @@ function HUD_Center.Init(screenGui, sharedFolder)
 
 	countdownEvent.OnClientEvent:Connect(function(value)
 		if value == "GO" then
+			-- Prioridad al sonido para sincronía
 			SoundManager.Play("Go")
 			local asset = COUNTDOWN_IMAGES["GO"]
 			if asset then playCountdownPop(asset) end

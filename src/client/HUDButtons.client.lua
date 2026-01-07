@@ -2,10 +2,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-local ContentProvider = game:GetService("ContentProvider")
+-- ContentProvider ya no se necesita aquí, la carga se delegará a la pantalla de carga
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local sharedFolder = ReplicatedStorage:WaitForChild("shared")
+
+-- IMPORTAR MANAGERS
+local DecalManager = require(sharedFolder:WaitForChild("DecalManager"))
+local FontManager = require(sharedFolder:WaitForChild("FontManager"))
+local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 
 -- 1. EVENTOS Y VARIABLES
 local toggleShopEvent = ReplicatedStorage:FindFirstChild("ToggleShopEvent")
@@ -20,20 +26,11 @@ local dashEvent = ReplicatedStorage:WaitForChild("DashEvent")
 local cooldownEvent = ReplicatedStorage:WaitForChild("CooldownEvent")
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
 
--- ASSETS
-local CART_ICON = "rbxassetid://113277509630221"
-local DASH_ICON = "rbxassetid://97307955533015"
-local PUSH_ICON = "rbxassetid://76175865229928"
-local READY_SOUND_ID = "rbxassetid://137818744150574"
-local ERROR_SOUND_ID = "rbxassetid://90683869968677" 
-local CUSTOM_FONT = Font.new("rbxassetid://12187370000")
-
-local readySound = Instance.new("Sound")
-readySound.Name = "AbilityReadySound"; readySound.SoundId = READY_SOUND_ID; readySound.Volume = 0.5; readySound.Parent = playerGui
-local errorSound = Instance.new("Sound")
-errorSound.Name = "AbilityErrorSound"; errorSound.SoundId = ERROR_SOUND_ID; errorSound.Volume = 0.5; errorSound.Parent = playerGui
-
-task.spawn(function() ContentProvider:PreloadAsync({readySound, errorSound}) end)
+-- ASSETS (Usando Managers)
+local CART_ICON = DecalManager.Get("Cart")
+local DASH_ICON = DecalManager.Get("Dash")
+local PUSH_ICON = DecalManager.Get("Push")
+local CUSTOM_FONT = FontManager.Get("Cartoon")
 
 -------------------------------------------------------------------
 -- 2. UI SETUP (CONTENEDOR)
@@ -195,7 +192,7 @@ local function createSlot(id, defaultKey, order, initialState)
 	cdText.Size = UDim2.new(1,0,1,0)
 	cdText.BackgroundTransparency = 1
 	cdText.TextColor3 = Color3.new(1,1,1)
-	cdText.Font = Enum.Font.GothamBlack -- Fuente gruesa para que se vea bien
+	cdText.Font = Enum.Font.GothamBlack 
 	cdText.TextSize = 28
 	cdText.Visible = true
 	cdText.ZIndex = 6
@@ -203,7 +200,7 @@ local function createSlot(id, defaultKey, order, initialState)
 	-- Estilo del Texto de Cooldown
 	local cdTextStroke = Instance.new("UIStroke", cdText)
 	cdTextStroke.Thickness = 2
-	cdTextStroke.Color = Color3.new(0,0,0) -- Stroke negro para contraste
+	cdTextStroke.Color = Color3.new(0,0,0) 
 	
 	local cdTextGrad = Instance.new("UIGradient", cdText)
 	cdTextGrad.Color = ColorSequence.new(COLORS.WHITE, COLORS.SILVER)
@@ -236,7 +233,8 @@ local function createSlot(id, defaultKey, order, initialState)
 		end,
 		
 		FlashError = function(self)
-			errorSound:Play()
+			-- USAMOS SOUNDMANAGER
+			SoundManager.Play("AbilityError")
 			updateStrokeGradient(stroke, "FLASH_RED")
 			
 			local origin = self.Frame.Position
@@ -258,7 +256,7 @@ local function createSlot(id, defaultKey, order, initialState)
 			
 			-- 1. CAMBIO ESTÉTICO: ROJO Y OSCURO
 			updateStrokeGradient(stroke, "COOLDOWN")
-			updateBackgroundGradient(frame, "COOLDOWN") -- Fondo Oscuro
+			updateBackgroundGradient(frame, "COOLDOWN") 
 			
 			-- 2. Activar Cortina
 			cdOverlay.Visible = true
@@ -287,9 +285,11 @@ local function createSlot(id, defaultKey, order, initialState)
 				cdOverlay.Visible = false
 				
 				-- 4. FLASH VERDE + VUELTA A CELESTE
-				readySound:Play()
+				-- USAMOS SOUNDMANAGER
+				SoundManager.Play("AbilityReady")
+				
 				updateStrokeGradient(stroke, "FLASH_GREEN")
-				updateBackgroundGradient(frame, "READY") -- Volver a Fondo Celeste
+				updateBackgroundGradient(frame, "READY") 
 				
 				local popInfo = TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 				TweenService:Create(frame, popInfo, {Size = UDim2.new(0, SIZE_PX + 8, 0, SIZE_PX + 8)}):Play()
@@ -306,10 +306,10 @@ local function createSlot(id, defaultKey, order, initialState)
 end
 
 -- CREACIÓN DE INSTANCIAS
--- Shop: Inicia con estilo "SHOP" (Amarillo fondo, Azul borde)
+-- Shop: Inicia con estilo "SHOP"
 local shopSlot = createSlot("ShopSlot", "E", 0, "SHOP")
 
--- Habilidades: Inician con estilo "READY" (Celeste fondo, Verde borde)
+-- Habilidades: Inician con estilo "READY"
 abilitySlots = {
 	createSlot("Slot1", "1", 1, "READY"),
 	createSlot("Slot2", "2", 2, "READY")
@@ -436,7 +436,6 @@ cooldownEvent.OnClientEvent:Connect(function(abilityName, duration)
 		for _, slot in ipairs(abilitySlots) do 
 			slot.InCooldown = false
 			slot.Frame:FindFirstChild("Frame", true).Visible = false
-			-- Resetear a Celeste/Verde
 			updateStrokeGradient(slot.Frame:FindFirstChild("UIStroke"), "READY")
 			updateBackgroundGradient(slot.Frame, "READY")
 		end

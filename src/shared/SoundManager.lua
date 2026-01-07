@@ -10,6 +10,7 @@ local SOUNDS = {
 	-- UI & HUD
 	["CoinPop"]           = {Id = "rbxassetid://1169755927",       Vol = 2,   Group = "UI"},
 	["AbilityReady"]      = {Id = "rbxassetid://137818744150574",  Vol = 0.5, Group = "UI"},
+	["AbilityError"]      = {Id = "rbxassetid://90683869968677",   Vol = 0.5, Group = "UI"},
 	["InsufficientFunds"] = {Id = "rbxassetid://90683869968677",   Vol = 1,   Group = "UI"},
 	["Countdown"]         = {Id = "rbxassetid://1837831424",       Vol = 1,   Group = "UI"},
 	["Go"]                = {Id = "rbxassetid://1837829473",       Vol = 1.5, Group = "UI"},
@@ -31,7 +32,6 @@ local SOUNDS = {
 	["LavaAmbient"]       = {Id = "rbxassetid://318794788",        Vol = 0.3, Group = "SFX", Looped = true},
 	["LavaRock"]          = {Id = "rbxassetid://124807383431117",  Vol = 0.5, Group = "SFX"},
 	["LavaSmash"]         = {Id = "rbxassetid://8275560362",       Vol = 1,   Group = "SFX"},
-	["LavaSmash2"]        = {Id = "rbxassetid://8275560362",       Vol = 1,   Group = "SFX"}, -- Nota: Es el mismo ID que LavaSmash, intencional?
 	
 	-- IMPACTOS
 	["BlockImpact"]       = {Id = "rbxassetid://8828710739",       Vol = 1.5, Group = "SFX", Min = 50, Max = 500},
@@ -45,11 +45,12 @@ local SOUNDS = {
 
 -- 2. INICIALIZACIÓN DE GRUPOS Y CACHÉ
 local groups = {}
-local templateCache = {} -- Aquí guardaremos los sonidos listos para clonar
+local templateCache = {} 
 
 local function setupGroups()
 	local names = {"SFX", "UI", "Music"}
 	for _, name in ipairs(names) do
+		-- Intentamos buscar primero para no duplicar si el servidor ya lo creó
 		local g = SoundService:FindFirstChild(name)
 		if not g then
 			g = Instance.new("SoundGroup")
@@ -61,13 +62,12 @@ local function setupGroups()
 end
 setupGroups()
 
--- 3. PRECARGA (OPTIMIZADA)
-function SoundManager.PreloadAll()
-	task.spawn(function()
-		local assetsToLoad = {}
-		
-		for name, data in pairs(SOUNDS) do
-			-- Creamos el sonido "Plantilla" AHORA, no al reproducir
+-- 3. GENERAR INSTANCIAS (Para Pantalla de Carga)
+function SoundManager.GetAssets()
+	local assetsToLoad = {}
+	
+	for name, data in pairs(SOUNDS) do
+		if not templateCache[name] then
 			local s = Instance.new("Sound")
 			s.Name = name
 			s.SoundId = data.Id
@@ -75,96 +75,91 @@ function SoundManager.PreloadAll()
 			s.SoundGroup = groups[data.Group]
 			s.Looped = data.Looped or false
 			
-			-- Configuramos distancias 3D por defecto en la plantilla
 			if data.Min then s.RollOffMinDistance = data.Min end
 			if data.Max then s.RollOffMaxDistance = data.Max end
 			
-			-- Lo guardamos en el caché
 			templateCache[name] = s
-			table.insert(assetsToLoad, s)
 		end
-		
-		-- Pedimos a Roblox que descargue el audio de estas instancias
-		local success, err = pcall(function()
-			ContentProvider:PreloadAsync(assetsToLoad)
-		end)
-		
-		if success then
-			print("🔊 SoundManager: Assets cargados y cacheados sin delay.")
-		else
-			warn("⚠️ SoundManager: Error cargando sonidos: " .. tostring(err))
-		end
-	end)
+		table.insert(assetsToLoad, templateCache[name])
+	end
+	
+	return assetsToLoad
 end
 
--- 4. REPRODUCIR (CLONANDO)
+-- 4. REPRODUCIR
 function SoundManager.Play(soundName, parent)
-	-- Buscamos en el caché (mucho más rápido que leer la tabla)
 	local template = templateCache[soundName]
 	
+	-- Fallback: Si no está en caché (ej: Primera vez que suena en el Server)
 	if not template then 
-		-- Fallback por si intentamos reproducir antes de que termine el Preload
 		local data = SOUNDS[soundName]
 		if not data then
 			warn("⚠️ SoundManager: Sonido no existe -> " .. tostring(soundName))
 			return nil
 		end
-		-- Creamos uno temporal de emergencia
-		template = Instance.new("Sound")
-		template.SoundId = data.Id
-		template.Volume = data.Vol
-		template.SoundGroup = groups[data.Group]
+		
+		local s = Instance.new("Sound")
+		s.Name = soundName
+		s.SoundId = data.Id
+		s.Volume = data.Vol
+		s.SoundGroup = groups[data.Group]
+		s.Looped = data.Looped or false
+		
+		if data.Min then s.RollOffMinDistance = data.Min end
+		if data.Max then s.RollOffMaxDistance = data.Max end
+		
+		template = s
+		templateCache[soundName] = s 
 	end
 	
-	-- CLONAMOS LA PLANTILLA (Esto elimina el delay de instanciación)
+	-- Clonamos para reproducir independientemente
 	local sound = template:Clone()
 	
 	if parent then
-		sound.Parent = parent -- Sonido 3D
+		sound.Parent = parent 
 	else
-		sound.Parent = SoundService -- Sonido 2D
+		sound.Parent = SoundService 
 	end
 	
 	sound:Play()
 	
-	-- Limpieza automática
+	-- LIMPIEZA AUTOMÁTICA (DEBRIS)
 	if not sound.Looped then
-		-- Usamos math.max para seguridad si TimeLength aún no cargó (aunque con el caché debería estar)
-		local lifetime = math.max(sound.TimeLength, 1) + 1
-		Debris:AddItem(sound, lifetime)
+		-- CORRECCIÓN CRÍTICA:
+		-- Usamos math.max(..., 5) para dar un margen de seguridad de 5 segundos mínimo.
+		-- Esto evita que si TimeLength es 0 (aún cargando), el sonido se borre instantáneamente.
+		local safeTime = math.max(sound.TimeLength, 5) + 2
+		Debris:AddItem(sound, safeTime)
 	end
 	
 	return sound
 end
 
--- 5. SISTEMA DE MÚSICA
+-- 5. MÚSICA
 local currentTrack = nil
 
 function SoundManager.PlayMusic(musicName, fadeTime)
 	fadeTime = fadeTime or 1
 	
-	-- Si ya suena la misma música, no hacemos nada
+	-- Evitar reinicios si ya suena la misma música
 	if currentTrack and currentTrack.Name == musicName then return end
 	
 	-- Apagar música anterior
 	if currentTrack then
 		local oldTrack = currentTrack
-		-- Desconectamos la referencia global para que no interfiera
 		currentTrack = nil 
-		
 		local tween = TweenService:Create(oldTrack, TweenInfo.new(fadeTime), {Volume = 0})
 		tween:Play()
-		tween.Completed:Connect(function()
-			oldTrack:Destroy()
-		end)
+		tween.Completed:Connect(function() oldTrack:Destroy() end)
 	end
 	
 	-- Iniciar nueva música
 	if musicName then
-		local newTrack = SoundManager.Play(musicName) -- Esto usa el sistema de clones
+		local newTrack = SoundManager.Play(musicName) 
 		if newTrack then
 			newTrack.Name = musicName
-			-- Fade In
+			newTrack.Looped = true -- Forzamos Looped por seguridad
+			
 			local targetVol = newTrack.Volume
 			newTrack.Volume = 0
 			TweenService:Create(newTrack, TweenInfo.new(fadeTime), {Volume = targetVol}):Play()

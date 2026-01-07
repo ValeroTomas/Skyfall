@@ -8,11 +8,15 @@ function HUD_Coins.Init(screenGui, sharedFolder)
 	local Utils = require(script.Parent.HUDUtils)
 	local Localization = require(sharedFolder:WaitForChild("Localization"))
 	local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
-	local COIN_ICON_ID = "rbxassetid://99365746352443"
+	
+	-- IMPORTAR DECAL MANAGER
+	local DecalManager = require(sharedFolder:WaitForChild("DecalManager"))
+	
+	-- USAR ASSET DEL MANAGER
+	local COIN_ICON_ID = DecalManager.Get("Coin")
 
 	local player = Players.LocalPlayer
 	local rewardEvent = ReplicatedStorage:WaitForChild("RewardEvent")
-	local killfeedEvent = ReplicatedStorage:WaitForChild("KillfeedEvent") -- Para notificar al feed
 	
 	-- CREACIÓN UI
 	local coinsFrame = Instance.new("Frame", screenGui)
@@ -38,20 +42,13 @@ function HUD_Coins.Init(screenGui, sharedFolder)
 	cIcon.LayoutOrder = 1
 	
 	-- CORRECCIÓN DEL OUTLINE (Borde Ajustado)
-	-- Creamos un marco interno invisible para el borde, así podemos hacerlo más pequeño
 	local outlineFrame = Instance.new("Frame", cIcon)
 	outlineFrame.Name = "OutlineFix"
 	outlineFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	outlineFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-	outlineFrame.BackgroundTransparency = 1 -- Invisible, solo queremos el borde
-	
-	-- AJUSTE DE TAMAÑO:
-	-- 0.75 significa el 75% del tamaño.
-	-- Si el círculo sigue quedando grande, baja a 0.7 o 0.65.
-	-- Si queda muy chico (corta la moneda), sube a 0.8 o 0.85.
+	outlineFrame.BackgroundTransparency = 1 
 	outlineFrame.Size = UDim2.new(0.75, 0, 0.75, 0) 
 	
-	-- Aplicamos el borde al marco interno en lugar de a la imagen
 	Instance.new("UICorner", outlineFrame).CornerRadius = UDim.new(1, 0)
 	local iconStroke = Instance.new("UIStroke", outlineFrame)
 	iconStroke.Thickness = 2; iconStroke.Color = Color3.new(0,0,0)
@@ -62,15 +59,11 @@ function HUD_Coins.Init(screenGui, sharedFolder)
 	cText.BackgroundTransparency = 1; cText.Text = "0"
 	cText.LayoutOrder = 2; cText.TextSize = 28
 	
-	-- SOLUCIÓN DE ALINEACIÓN: Relleno interno
-	-- Esto empuja el texto hacia abajo sin pelear con el Layout
 	local textPad = Instance.new("UIPadding", cText)
-	textPad.PaddingTop = UDim.new(0, 7) -- <--- AUMENTA ESTE NÚMERO PARA BAJAR EL TEXTO
+	textPad.PaddingTop = UDim.new(0, 7) 
 	
-	-- ESTILO DORADO (Con los colores exactos del icono)
+	-- ESTILO DORADO
 	local function applyGoldStyle()
-		-- Top: #fcf025 (Amarillo brillante)
-		-- Bottom: #ea9d04 (Naranja oscuro)
 		Utils.ApplyCartoonStyle(
 			cText, 
 			Color3.fromHex("fcf025"), 
@@ -86,9 +79,8 @@ function HUD_Coins.Init(screenGui, sharedFolder)
 	cPlus.BackgroundTransparency = 1; cPlus.Text = ""
 	cPlus.LayoutOrder = 3; cPlus.Visible = false; cPlus.TextSize = 32
 	
-	-- Relleno para alinear también la suma
 	local plusPad = Instance.new("UIPadding", cPlus)
-	plusPad.PaddingTop = UDim.new(0, 7) -- <--- USA EL MISMO VALOR QUE ARRIBA
+	plusPad.PaddingTop = UDim.new(0, 7) 
 	Utils.ApplyCartoonStyle(cPlus, Color3.fromRGB(150, 255, 150), Color3.fromRGB(0, 200, 0), Color3.new(0,0,0))
 
 	-- LÓGICA

@@ -14,7 +14,11 @@ local languages = {
 		["NO_ONE"] = "¡NADIE SOBREVIVIÓ!",
 		["ALIVE"] = "%s VIVOS",
 		["TIE"] = "¡EMPATE!",
-		["COUNTDOWN_GO"] = "¡YA!", -- Agregado para el efecto visual
+		["COUNTDOWN_GO"] = "¡YA!",
+		
+		-- LOADING SCREEN (NUEVO)
+		["LOADING_ASSETS"] = "CARGANDO RECURSOS...",
+		["LOADING_COMPLETE"] = "¡LISTO!",
 		
 		-- Killfeed
 		["DEATH_LAVA"] = "🔥 %s se cayó a la lava.",
@@ -84,7 +88,11 @@ local languages = {
 		["NO_ONE"] = "NO ONE SURVIVED!",
 		["ALIVE"] = "%s ALIVE",
 		["TIE"] = "TIE!",
-		["COUNTDOWN_GO"] = "GO!", -- Added for visual effect
+		["COUNTDOWN_GO"] = "GO!",
+		
+		-- LOADING SCREEN (NEW)
+		["LOADING_ASSETS"] = "LOADING ASSETS...",
+		["LOADING_COMPLETE"] = "READY!",
 		
 		-- Killfeed
 		["DEATH_LAVA"] = "🔥 %s fell into the lava.",
@@ -143,12 +151,8 @@ local languages = {
 }
 
 function Localization.get(key, lang, ...)
-	-- Busca el idioma, si no existe usa inglés
 	local langData = languages[lang] or languages["en"]
-	-- Busca la clave, si no existe devuelve la clave misma como texto fallback
 	local text = langData[key] or key
-	
-	-- Intenta formatear (para %s), si falla devuelve el texto plano
 	local success, result = pcall(string.format, text, ...)
 	return success and result or text
 end

@@ -12,6 +12,7 @@ local ShopConfig = require(sharedFolder:WaitForChild("ShopConfig"))
 
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 local Localization = require(sharedFolder:WaitForChild("Localization")) 
+local FontManager = require(sharedFolder:WaitForChild("FontManager"))
 
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
 local shopFunction = ReplicatedStorage:WaitForChild("ShopFunction")
@@ -24,7 +25,7 @@ local function getTxt(key, ...)
 	return Localization.get(key, playerLang, ...)
 end
 
-print("🛒 ShopHUD: Menú Interno Cargado (Localizado + Audio Nuevo).")
+print("🛒 ShopHUD: Menú Interno Cargado.")
 
 -------------------------------------------------------------------
 -- 1. UI SETUP
@@ -57,7 +58,8 @@ local mStroke = Instance.new("UIStroke", menuFrame); mStroke.Thickness = 4; mStr
 local title = Instance.new("TextLabel", menuFrame)
 title.Size = UDim2.new(1, 0, 0, 60); title.BackgroundTransparency = 1
 title.Text = getTxt("SHOP_TITLE")
-title.Font = Enum.Font.LuckiestGuy; title.TextSize = 40
+title.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
+title.TextSize = 40
 title.TextColor3 = Color3.fromRGB(255, 200, 50); title.Position = UDim2.new(0,0,0,5)
 title.ZIndex = 6
 local tStroke = Instance.new("UIStroke", title); tStroke.Thickness = 2
@@ -98,7 +100,8 @@ local rgbTitle = Instance.new("TextLabel", rgbFrame)
 rgbTitle.Size = UDim2.new(1,0,0,50); rgbTitle.BackgroundTransparency = 1
 rgbTitle.Text = getTxt("COLOR_SELECTOR")
 rgbTitle.TextColor3 = Color3.new(1,1,1)
-rgbTitle.Font = Enum.Font.LuckiestGuy; rgbTitle.TextSize = 28
+rgbTitle.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
+rgbTitle.TextSize = 28
 rgbTitle.ZIndex = 26
 local rgbTStroke = Instance.new("UIStroke", rgbTitle); rgbTStroke.Thickness = 2
 
@@ -132,7 +135,8 @@ local function createFancySlider(yPos, labelText, mainColor, callback)
 	lab.Size = UDim2.new(0, 30, 1, 0)
 	lab.BackgroundTransparency = 1
 	lab.Text = labelText
-	lab.Font = Enum.Font.LuckiestGuy; lab.TextSize = 24
+	lab.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
+	lab.TextSize = 24
 	lab.TextColor3 = mainColor
 	lab.ZIndex = 27
 	local lStroke = Instance.new("UIStroke", lab); lStroke.Thickness = 2
@@ -187,7 +191,8 @@ local confirmColor = Instance.new("TextButton", rgbFrame)
 confirmColor.Size = UDim2.new(0, 140, 0, 45); confirmColor.Position = UDim2.new(0.5, 0, 0.96, 0)
 confirmColor.AnchorPoint = Vector2.new(0.5, 1); confirmColor.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
 confirmColor.Text = getTxt("BTN_CONFIRM") 
-confirmColor.Font = Enum.Font.LuckiestGuy; confirmColor.TextSize = 22
+confirmColor.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
+confirmColor.TextSize = 22
 confirmColor.TextColor3 = Color3.new(1,1,1)
 confirmColor.ZIndex = 27
 Instance.new("UICorner", confirmColor)
@@ -218,7 +223,8 @@ local function createRow(titleText, upgradeKey, isBool)
 	nameLab.Text = titleText
 	nameLab.Size = UDim2.new(0.4, 0, 0.4, 0); nameLab.Position = UDim2.new(0, 15, 0, 10)
 	nameLab.BackgroundTransparency = 1; nameLab.TextColor3 = Color3.new(1,1,1)
-	nameLab.Font = Enum.Font.LuckiestGuy; nameLab.TextSize = 24 
+	nameLab.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
+	nameLab.TextSize = 24 
 	nameLab.TextXAlignment = Enum.TextXAlignment.Left
 	nameLab.ZIndex = 8
 	local nStroke = Instance.new("UIStroke", nameLab); nStroke.Thickness = 2
@@ -226,7 +232,8 @@ local function createRow(titleText, upgradeKey, isBool)
 	local priceLab = Instance.new("TextLabel", row)
 	priceLab.Size = UDim2.new(0.4, 0, 0.4, 0); priceLab.Position = UDim2.new(0, 15, 0.55, 0)
 	priceLab.BackgroundTransparency = 1; priceLab.TextColor3 = Color3.fromRGB(255, 230, 100)
-	priceLab.Font = Enum.Font.GothamBlack; priceLab.TextSize = 20
+	priceLab.FontFace = Font.fromEnum(Enum.Font.GothamBlack) -- Mantenemos Gotham para números/precios
+	priceLab.TextSize = 20
 	priceLab.TextXAlignment = Enum.TextXAlignment.Left
 	priceLab.Text = "..."
 	priceLab.ZIndex = 8
@@ -235,7 +242,8 @@ local function createRow(titleText, upgradeKey, isBool)
 	buyBtn.Size = UDim2.new(0, 100, 0, 50); buyBtn.Position = UDim2.new(1, -15, 0.5, 0)
 	buyBtn.AnchorPoint = Vector2.new(1, 0.5); buyBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
 	buyBtn.Text = getTxt("BTN_BUY") 
-	buyBtn.Font = Enum.Font.GothamBlack; buyBtn.TextSize = 16
+	buyBtn.FontFace = Font.fromEnum(Enum.Font.GothamBlack) -- Botones en Gotham para legibilidad
+	buyBtn.TextSize = 16
 	buyBtn.ZIndex = 8
 	Instance.new("UICorner", buyBtn)
 	local bStroke = Instance.new("UIStroke", buyBtn); bStroke.Thickness = 2; bStroke.Color = Color3.new(0,0,0)
@@ -265,7 +273,9 @@ end
 local function addHeader(text)
 	local h = Instance.new("TextLabel", scroll)
 	h.Size = UDim2.new(1,0,0,40); h.BackgroundTransparency=1
-	h.Text = text; h.TextColor3 = Color3.fromRGB(0, 255, 255); h.Font = Enum.Font.LuckiestGuy; h.TextSize = 28
+	h.Text = text; h.TextColor3 = Color3.fromRGB(0, 255, 255)
+	h.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
+	h.TextSize = 28
 	h.ZIndex = 7
 	local hStroke = Instance.new("UIStroke", h); hStroke.Thickness = 3
 end
@@ -350,9 +360,9 @@ local function refreshShopUI()
 					rowData.Conn = rowData.Btn.MouseButton1Click:Connect(function()
 						local s, msg = shopFunction:InvokeServer("BuyUpgrade", key)
 						
-						-- FEEDBACK DE SONIDO (BOOL = UNLOCK)
+						-- FEEDBACK SONORO (Pre-Cargado)
 						if s then 
-							SoundManager.Play("UnlockSkill") -- SONIDO DIFERENTE PARA DESBLOQUEOS
+							SoundManager.Play("UnlockSkill")
 							if msg == "SELECT_COLOR" then
 								refreshShopUI()
 								currentItemToColor = (key == "DoubleJumpColor" and "DoubleJump" or "Dash")
@@ -398,9 +408,8 @@ local function refreshShopUI()
 					rowData.Conn = rowData.Btn.MouseButton1Click:Connect(function()
 						local s, msg = shopFunction:InvokeServer("BuyUpgrade", key)
 						
-						-- FEEDBACK DE SONIDO (LEVEL = UPGRADE)
 						if s then
-							SoundManager.Play("BuyUpgrade") -- SONIDO PARA MEJORAS DE NIVEL
+							SoundManager.Play("BuyUpgrade")
 							refreshShopUI()
 						else
 							SoundManager.Play("InsufficientFunds")

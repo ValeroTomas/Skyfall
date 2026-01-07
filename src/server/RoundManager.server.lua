@@ -39,7 +39,7 @@ end
 
 -- CONFIGURACIÓN
 local IntermissionTime = 20 
-local MinPlayers = 1   
+local MinPlayers = 2   
 local ROUND_DURATION = 150 
 
 _G.LluviaActiva = false
@@ -131,7 +131,7 @@ while true do
                 p:SetAttribute("RoundRank", 1)
             end
             
-        elseif aliveCount <= 0 then
+        elseif aliveCount <= 1 then
             if aliveCount == 1 then
                 local winner = alivePlayers[1]
                 estadoValue.Value = "WINNER|" .. winner.Name

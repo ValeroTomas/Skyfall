@@ -2,8 +2,11 @@ local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
 
--- IMPORTAR SOUNDMANAGER
-local SoundManager = require(ReplicatedStorage.shared.SoundManager)
+local sharedFolder = ReplicatedStorage:WaitForChild("shared")
+
+-- IMPORTAR MANAGERS
+local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
+local DecalManager = require(sharedFolder:WaitForChild("DecalManager"))
 
 -- FUNCIÓN DE GRAVEDAD BAJA (Para muerte por Lava)
 local function applyLowGravity(part)
@@ -98,9 +101,11 @@ local function applyLavaDeath(character)
 
 			if part.Name:match("Torso") or part.Name == "Head" or part.Name:match("Arm") or part.Name:match("Leg") then
 				applyLowGravity(part)
+				
+				-- PARTICULA DE QUEMADURA (USANDO MANAGER)
 				local p = Instance.new("ParticleEmitter")
 				p.Name = "BurnEffect"
-				p.Texture = "rbxassetid://4770542473" 
+				p.Texture = DecalManager.Get("BurnTexture") 
 				p.Color = ColorSequence.new(Color3.new(0.1, 0.1, 0.1))
 				p.Size = NumberSequence.new(1, 2)
 				p.Rate = 25

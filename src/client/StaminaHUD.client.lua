@@ -8,10 +8,12 @@ local player = Players.LocalPlayer
 local sprintEvent = ReplicatedStorage:WaitForChild("SprintEvent")
 local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 
--- IMPORTAR SONIDOS
+-- IMPORTANTE: Ya no necesitamos enviar eventos de salto desde aquí.
+-- Eso ahora es trabajo de JumpClient.
+
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 
--- UI SETUP (Igual que antes...)
+-- UI SETUP
 local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 screenGui.Name = "StaminaHUD"
 screenGui.ResetOnSpawn = false
@@ -28,24 +30,20 @@ local COLOR_WHITE  = Color3.fromRGB(255, 255, 255)
 local COLOR_YELLOW = Color3.fromRGB(255, 255, 0)
 local COLOR_RED    = Color3.fromRGB(255, 50, 50)
 
--- CREACIÓN DE UI (GLOW, BACK, FILL...) 
--- (Copia aquí la parte de creación de UI de tu versión anterior, no ha cambiado)
+-- CREACIÓN DE UI
 local staminaGlow = Instance.new("Frame", screenGui); staminaGlow.Name = "Glow"; staminaGlow.Size = UDim2.new(0, BAR_WIDTH + 15, 0, BAR_HEIGHT + 15); staminaGlow.Position = ORIGINAL_POS; staminaGlow.AnchorPoint = Vector2.new(0.5, 0.5); staminaGlow.BackgroundColor3 = COLOR_BLUE; staminaGlow.BackgroundTransparency = 1; staminaGlow.ZIndex = 1; Instance.new("UICorner", staminaGlow).CornerRadius = UDim.new(1, 0)
 local staminaBack = Instance.new("Frame", screenGui); staminaBack.Name = "StaminaBack"; staminaBack.Size = UDim2.new(0, BAR_WIDTH, 0, BAR_HEIGHT); staminaBack.Position = ORIGINAL_POS; staminaBack.AnchorPoint = Vector2.new(0.5, 0.5); staminaBack.BackgroundColor3 = Color3.fromRGB(20, 20, 20); staminaBack.BackgroundTransparency = 1; staminaBack.Visible = false; staminaBack.ZIndex = 2; Instance.new("UICorner", staminaBack).CornerRadius = UDim.new(1, 0)
 local stroke = Instance.new("UIStroke", staminaBack); stroke.Thickness = 1.5; stroke.Color = Color3.fromRGB(0,0,0); stroke.Transparency = 1
 local staminaFill = Instance.new("Frame", staminaBack); staminaFill.Name = "Fill"; staminaFill.Size = UDim2.new(1, 0, 1, 0); staminaFill.BackgroundColor3 = COLOR_BLUE; staminaFill.BackgroundTransparency = 1; staminaFill.ZIndex = 3; Instance.new("UICorner", staminaFill).CornerRadius = UDim.new(1, 0)
 
 --------------------------------------------------------------------------------
--- LÓGICA DE SHAKE & SOUND
+-- LÓGICA DE SHAKE & SOUND (FEEDBACK SOLAMENTE)
 --------------------------------------------------------------------------------
 local isShaking = false
 local function triggerShake()
 	if isShaking then return end
 	isShaking = true
-	
-	-- SONIDO DE ERROR
 	SoundManager.Play("StaminaEmpty")
-	
 	task.spawn(function()
 		local startTime = tick()
 		local duration = 0.3 
@@ -67,7 +65,7 @@ end
 --------------------------------------------------------------------------------
 local isVisible = false
 local isFlashing = false 
-local lastPercent = 1 -- Para detectar cuándo llegamos al 100%
+local lastPercent = 1 
 
 local function resetAndHide()
 	isFlashing = false
@@ -87,14 +85,11 @@ local function updateState(percent)
 	local targetGlowTransp = 1
 	local targetGlowColor = COLOR_BLUE
 	
-	-- SONIDO DE CARGA COMPLETA
-	-- Si antes no estábamos llenos y ahora sí (>= 0.99), y estábamos visibles
 	if percent >= 0.99 and lastPercent < 0.99 and isVisible then
 		SoundManager.Play("StaminaFull")
 	end
 	lastPercent = percent
 	
-	-- CASO 1: BARRA LLENA (FLASH Y OCULTAR)
 	if percent >= 0.99 then
 		if not isFlashing and isVisible then
 			isFlashing = true
@@ -112,13 +107,11 @@ local function updateState(percent)
 			end)
 		end
 		return 
-	-- LÓGICA DE COLORES
 	elseif percent > 0.9 then targetColor = COLOR_BLUE; targetGlowTransp = 1; isFlashing = false
 	elseif percent > 0.5 then targetColor = COLOR_WHITE; targetGlowTransp = 1; isFlashing = false
-	elseif percent > 0.2 then targetColor = COLOR_YELLOW; targetGlowTransp = 1; isFlashing = false
+	elseif percent > 0.19 then targetColor = COLOR_YELLOW; targetGlowTransp = 1; isFlashing = false
 	else targetColor = COLOR_RED; targetGlowColor = COLOR_RED; targetGlowTransp = 0.3; isFlashing = false end
 
-	-- APLICAR CAMBIOS
 	if not isFlashing then
 		if not isVisible then
 			isVisible = true; staminaBack.Visible = true; staminaGlow.Visible = true
@@ -132,25 +125,12 @@ local function updateState(percent)
 	end
 end
 
+-- CONEXIONES DE INTERFAZ
 local function connectCharacter(char)
 	local humanoid = char:WaitForChild("Humanoid")
+	
 	humanoid.Died:Connect(function() resetAndHide() end)
 	
-	-- DETECTAR SALTOS PARA EL FEEDBACK DE ERROR
-	humanoid.StateChanged:Connect(function(old, new)
-		if new == Enum.HumanoidStateType.Jumping then
-			local current = char:GetAttribute("CurrentStamina") or 100
-			local max = player:GetAttribute("MaxStamina") or 100
-			-- Chequeamos el atributo "IsExhausted" que pone el servidor, o calculamos manualmente
-			local isExhausted = char:GetAttribute("IsExhausted")
-			
-			-- Si estamos agotados (IsExhausted true) o muy bajos, vibramos
-			if isExhausted then
-				triggerShake()
-			end
-		end
-	end)
-
 	char:GetAttributeChangedSignal("CurrentStamina"):Connect(function()
 		local current = char:GetAttribute("CurrentStamina") or 100
 		local max = player:GetAttribute("MaxStamina") or 100 
@@ -163,18 +143,19 @@ end
 if player.Character then connectCharacter(player.Character) end
 player.CharacterAdded:Connect(connectCharacter)
 
--- INPUTS
+-- INPUTS (SOLO PARA CORRER Y FEEDBACK)
 UserInputService.InputBegan:Connect(function(input, proc)
 	if proc then return end
-	if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL3 then
+	
+	-- Si intentan saltar o correr agotados, VIBRAMOS el HUD
+	if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA or input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL3 then
 		local char = player.Character
-		if char then
-			-- Revisamos si estamos agotados para dar feedback
-			local isExhausted = char:GetAttribute("IsExhausted")
-			if isExhausted then
-				triggerShake()
-			end
+		if char and char:GetAttribute("IsExhausted") then
+			triggerShake()
 		end
+	end
+	
+	if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL3 then
 		sprintEvent:FireServer(true)
 	end
 end)

@@ -7,7 +7,7 @@ local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 local ShopConfig = require(sharedFolder:WaitForChild("ShopConfig"))
 
 -- CONFIGURACIÓN
-local DATA_VERSION = "v4.2" 
+local DATA_VERSION = "v4.3" 
 local MyDataStore = DataStoreService:GetDataStore("PlayerData_" .. DATA_VERSION)
 
 local DefaultData = {
@@ -16,7 +16,7 @@ local DefaultData = {
 	Upgrades = {
 		JumpHeight = 1,
 		JumpStaminaCost = 1,
-		DoubleJump = false,
+		DoubleJump = true,
 		DoubleJumpColor = 1, -- O tabla RGB si avanzamos
 		
 		PushUnlock = false,

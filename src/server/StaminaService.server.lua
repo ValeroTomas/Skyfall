@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
--- EVENTO
+-- EVENTOS
 local sprintEvent = ReplicatedStorage:FindFirstChild("SprintEvent")
 if not sprintEvent then
 	sprintEvent = Instance.new("RemoteEvent")
@@ -10,20 +10,25 @@ if not sprintEvent then
 	sprintEvent.Parent = ReplicatedStorage
 end
 
--- CONFIGURACIÓN BASE (Valores por defecto si no hay mejoras compradas)
+-- NUEVO EVENTO: DEDUCCIÓN DE SALTO
+local jumpStaminaEvent = ReplicatedStorage:FindFirstChild("JumpStaminaEvent")
+if not jumpStaminaEvent then
+	jumpStaminaEvent = Instance.new("RemoteEvent")
+	jumpStaminaEvent.Name = "JumpStaminaEvent"
+	jumpStaminaEvent.Parent = ReplicatedStorage
+end
+
+-- CONFIGURACIÓN
+local REGEN_DELAY = 2.5       
+local DEFAULT_MAX_STAMINA = 100
+local DEFAULT_REGEN = 15      
+local DEFAULT_DRAIN = 20      
+local BASE_JUMP_COST = 20     
+local DEFAULT_JUMP_POWER = 50 
+
 local BASE_WALK = 16
 local BASE_SPRINT = 28
-local DEFAULT_JUMP_POWER = 50 -- Valor normal de Roblox
 
--- VALORES DE STAMINA (Defaults)
-local DEFAULT_MAX = 100
-local DEFAULT_REGEN = 15      -- Cuánto regenera por segundo
-local DEFAULT_DRAIN = 20      -- Cuánto gasta correr por segundo
-local DEFAULT_JUMP_COST = 15  -- Cuánto gasta saltar (NUEVO)
-local REGEN_DELAY = 2.5       -- Segundos a esperar para regenerar
-
--- TABLA DE ESTADOS
--- Guardaremos: { IntentionalSprint = bool, LastActionTime = number, IsExhausted = bool }
 local playerStates = {}
 
 --------------------------------------------------------------------------------
@@ -31,66 +36,68 @@ local playerStates = {}
 --------------------------------------------------------------------------------
 local function setupPlayer(player)
 	playerStates[player] = {
-		IntentionalSprint = false,
-		LastActionTime = 0, -- Momento de la última acción que gastó energía
+		WantsToSprint = false,
+		LastActionTime = 0,
 		IsExhausted = false
 	}
 	
 	player.CharacterAdded:Connect(function(char)
-		-- Inicializar atributos visuales
-		char:SetAttribute("CurrentStamina", player:GetAttribute("MaxStamina") or DEFAULT_MAX)
-		char:SetAttribute("IsExhausted", false)
-		
 		local hum = char:WaitForChild("Humanoid")
 		
-		-- DETECCIÓN DE SALTO (Gasto instantáneo)
-		hum.StateChanged:Connect(function(old, new)
-			if new == Enum.HumanoidStateType.Jumping then
-				local state = playerStates[player]
-				if not state then return end
-				
-				-- Leemos atributos actuales (por si compró mejoras)
-				local jumpCost = player:GetAttribute("JumpCost") or DEFAULT_JUMP_COST
-				local currentStamina = char:GetAttribute("CurrentStamina") or DEFAULT_MAX
-				
-				-- Solo consumimos si NO está agotado
-				if not state.IsExhausted and currentStamina > 0 then
-					local newStamina = math.max(0, currentStamina - jumpCost)
-					char:SetAttribute("CurrentStamina", newStamina)
-					state.LastActionTime = tick() -- Reseteamos el timer de regeneración
-					
-					-- Si saltar lo dejó en 0, se agota
-					if newStamina <= 0 then
-						state.IsExhausted = true
-					end
-				else
-					-- Si está agotado, el salto no debería ocurrir físicamente
-					-- (Lo controlamos abajo en el bucle seteando JumpPower a 0)
-					hum.Jump = false
-				end
-			end
-		end)
+		-- Inicializar atributos
+		if not player:GetAttribute("MaxStamina") then player:SetAttribute("MaxStamina", DEFAULT_MAX_STAMINA) end
+		char:SetAttribute("CurrentStamina", player:GetAttribute("MaxStamina"))
+		char:SetAttribute("IsExhausted", false) 
+		
+		-- YA NO USAMOS hum.Jumping AQUÍ PARA RESTAR.
+		-- Lo manejamos vía Evento Remoto para asegurar precisión.
 	end)
 end
 
 Players.PlayerAdded:Connect(setupPlayer)
-for _, p in ipairs(Players:GetPlayers()) do setupPlayer(p) end -- Por si recargas el script
-
-Players.PlayerRemoving:Connect(function(player)
-	playerStates[player] = nil
-end)
+Players.PlayerRemoving:Connect(function(player) playerStates[player] = nil end)
+for _, p in ipairs(Players:GetPlayers()) do setupPlayer(p) end
 
 --------------------------------------------------------------------------------
--- 2. INPUT DE CORRER
+-- 2. HANDLERS DE EVENTOS (INPUTS)
 --------------------------------------------------------------------------------
+
+-- CORRER
 sprintEvent.OnServerEvent:Connect(function(player, isSprinting)
 	if playerStates[player] then
-		playerStates[player].IntentionalSprint = isSprinting
+		playerStates[player].WantsToSprint = isSprinting
+	end
+end)
+
+-- SALTAR (NUEVO: Recibe la señal del cliente)
+jumpStaminaEvent.OnServerEvent:Connect(function(player)
+	local state = playerStates[player]
+	local char = player.Character
+	if not state or not char then return end
+	
+	-- Validaciones de seguridad (Anti-Cheat básico)
+	if state.IsExhausted then return end -- Si está agotado, el servidor ignora el salto
+	
+	local current = char:GetAttribute("CurrentStamina") or DEFAULT_MAX_STAMINA
+	if current <= 0 then return end
+
+	-- CÁLCULO
+	local multiplier = player:GetAttribute("JumpStaminaCost") or 1.0
+	local finalJumpCost = BASE_JUMP_COST * multiplier
+	
+	-- RESTA
+	local newValue = math.max(0, current - finalJumpCost)
+	char:SetAttribute("CurrentStamina", newValue)
+	state.LastActionTime = tick() -- Resetear delay de regeneración
+	
+	-- AGOTAMIENTO
+	if newValue <= 0 then
+		state.IsExhausted = true
 	end
 end)
 
 --------------------------------------------------------------------------------
--- 3. BUCLE DE LÓGICA (HEARTBEAT)
+-- 3. BUCLE PRINCIPAL (REGEN & ESTADOS)
 --------------------------------------------------------------------------------
 RunService.Heartbeat:Connect(function(dt)
 	for player, state in pairs(playerStates) do
@@ -98,63 +105,47 @@ RunService.Heartbeat:Connect(function(dt)
 		local hum = char and char:FindFirstChild("Humanoid")
 		
 		if char and hum and hum.Health > 0 then
-			-- LEER VARIABLES (Compatibilidad con Tienda)
-			local maxStamina = player:GetAttribute("MaxStamina") or DEFAULT_MAX
+			local maxStamina = player:GetAttribute("MaxStamina") or DEFAULT_MAX_STAMINA
 			local regenRate = player:GetAttribute("StaminaRegen") or DEFAULT_REGEN
 			local drainRate = player:GetAttribute("StaminaDrain") or DEFAULT_DRAIN
+			local targetJumpPower = player:GetAttribute("JumpHeight") or DEFAULT_JUMP_POWER
 			
 			local current = char:GetAttribute("CurrentStamina") or maxStamina
-			
 			local isMoving = hum.MoveDirection.Magnitude > 0
 			
-			-- LÓGICA DE AGOTAMIENTO (EXHAUSTED)
+			-- LÓGICA DE AGOTAMIENTO
 			if state.IsExhausted then
-				-- Si está agotado: Bloquear Correr y Saltar
+				hum.JumpPower = 0 -- El servidor fuerza 0 para que nadie salte si está agotado
 				hum.WalkSpeed = BASE_WALK
-				hum.JumpPower = 0 -- No puede saltar
 				
-				-- Salir del estado agotado solo si recupera el 20%
 				if current >= (maxStamina * 0.2) then
 					state.IsExhausted = false
-					hum.JumpPower = DEFAULT_JUMP_POWER -- Devolver salto
 				end
-				
 			else
-				-- ESTADO NORMAL
-				hum.JumpPower = DEFAULT_JUMP_POWER
+				hum.JumpPower = targetJumpPower
 				
-				local isSprinting = false
+				local actuallySprinting = state.WantsToSprint and isMoving and current > 0
 				
-				-- ¿Intenta correr + Se mueve + Tiene energía?
-				if state.IntentionalSprint and isMoving and current > 0 then
-					isSprinting = true
-				end
-				
-				if isSprinting then
-					-- GASTAR
-					current = math.max(0, current - (drainRate * dt))
-					state.LastActionTime = tick() -- Reseteamos el delay de regen
+				if actuallySprinting then
 					hum.WalkSpeed = BASE_SPRINT
+					current = math.max(0, current - (drainRate * dt))
+					state.LastActionTime = tick()
 					
-					-- Si llega a 0 corriendo, se agota
 					if current <= 0 then
 						state.IsExhausted = true
 					end
 				else
-					-- CAMINAR
 					hum.WalkSpeed = BASE_WALK
 				end
 			end
 			
-			-- REGENERACIÓN (Con Delay)
-			-- Solo regenera si pasaron 2.5s desde la última vez que gastó (correr o saltar)
+			-- REGENERACIÓN
 			if tick() - state.LastActionTime >= REGEN_DELAY then
 				if current < maxStamina then
 					current = math.min(maxStamina, current + (regenRate * dt))
 				end
 			end
 			
-			-- ACTUALIZAR ATRIBUTOS (Para que el Cliente/HUD lo vea)
 			char:SetAttribute("CurrentStamina", current)
 			char:SetAttribute("IsExhausted", state.IsExhausted)
 		end

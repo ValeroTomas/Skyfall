@@ -78,7 +78,7 @@ local function onCharacterAdded(char)
 		-- esto evita el doble salto si caemos de un borde sin energía)
 		if char:GetAttribute("IsExhausted") then return end
 
-		local ownsUpgrade = player:GetAttribute("CanDoubleJump") == true
+		local ownsUpgrade = player:GetAttribute("DoubleJump") == true
 
 		if canDoubleJump and not hasDoubleJumped and ownsUpgrade then
 			local state = humanoid:GetState()

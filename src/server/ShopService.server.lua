@@ -28,26 +28,22 @@ function shopFunction.OnServerInvoke(player, action, upgradeName, extraData)
 		local price = 0
 		local currentLevel = upgrades[upgradeName]
 		
-		-- VALIDACIÓN DE DEPENDENCIAS (Lógica Nueva)
+		-- VALIDACIÓN
 		if upgradeName == "DoubleJumpColor" and upgrades.DoubleJump ~= true then
 			return false, "Requiere Doble Salto"
 		end
-		
 		if (upgradeName:match("Push") and upgradeName ~= "PushUnlock") and upgrades.PushUnlock ~= true then
 			return false, "Desbloquea Empuje primero"
 		end
-		
 		if (upgradeName:match("Dash") and upgradeName ~= "DashUnlock") and upgrades.DashUnlock ~= true then
 			return false, "Desbloquea Esquive primero"
 		end
 
-		-- OBTENER PRECIO
+		-- PRECIO
 		if ShopConfig.SpecialItems[upgradeName] or upgradeName:match("Unlock") or upgradeName == "DoubleJump" then
-			-- Precio único (Booleanos o Cosméticos)
 			if currentLevel == true then return false, "Ya tienes esto" end
 			price = ShopConfig.Prices[upgradeName]
 		else
-			-- Niveles
 			currentLevel = currentLevel or 1
 			if currentLevel >= ShopConfig.MAX_LEVEL then return false, "Max Level" end
 			price = ShopConfig.Prices[upgradeName][currentLevel]
@@ -60,11 +56,13 @@ function shopFunction.OnServerInvoke(player, action, upgradeName, extraData)
 			setStat:Fire(player, "Coins", coins - price)
 			
 			if ShopConfig.SpecialItems[upgradeName] then
-				-- Es un cosmético (Color), damos permiso temporal para el selector
+				-- Autorizamos el cambio de color
 				player:SetAttribute("PendingColorChange_" .. (upgradeName == "DoubleJumpColor" and "DoubleJump" or "Dash"), true)
-				-- Marcamos como comprado en la base de datos también
+				
+				-- Marcamos la mejora como comprada (true)
+				-- NOTA: El color en sí se guarda luego vía el evento ColorUpdateEvent
 				setStat:Fire(player, "Upgrades", upgradeName, true)
-				return true, "SELECT_COLOR" -- Avisamos al cliente que abra el selector
+				return true, "SELECT_COLOR"
 			elseif upgradeName:match("Unlock") or upgradeName == "DoubleJump" then
 				setStat:Fire(player, "Upgrades", upgradeName, true)
 			else
@@ -79,17 +77,36 @@ function shopFunction.OnServerInvoke(player, action, upgradeName, extraData)
 	return false
 end
 
--- Evento para guardar el color elegido
-local colorEvent = Instance.new("RemoteEvent")
-colorEvent.Name = "ColorUpdateEvent"
-colorEvent.Parent = ReplicatedStorage
+-- EVENTO DE GUARDADO DE COLOR (CORREGIDO)
+local colorEvent = ReplicatedStorage:FindFirstChild("ColorUpdateEvent")
+if not colorEvent then
+	colorEvent = Instance.new("RemoteEvent")
+	colorEvent.Name = "ColorUpdateEvent"
+	colorEvent.Parent = ReplicatedStorage
+end
 
 colorEvent.OnServerEvent:Connect(function(player, itemType, r, g, b)
-	-- Guardar el color en el PlayerData (Simplificado: Guardamos componentes o asumimos guardado)
-	print("🎨 Color guardado: ", itemType, r, g, b)
-	
-	-- Consumir permiso
-	player:SetAttribute("PendingColorChange_" .. itemType, nil)
-	
-	-- Aquí podrías guardar {R=r, G=g, B=b} en la DB si adaptas PlayerDataHandler
+	-- Verificamos si tiene permiso pendiente (compró el cambio de color)
+	if player:GetAttribute("PendingColorChange_" .. itemType) then
+		
+		-- Creamos la tabla de color
+		local colorData = {R = r, G = g, B = b}
+		
+		-- Determinamos qué clave guardar en la DB
+		local keyToSave = ""
+		if itemType == "DoubleJump" then
+			keyToSave = "DoubleJumpColor"
+		elseif itemType == "Dash" then
+			keyToSave = "DashColor"
+		end
+		
+		if keyToSave ~= "" then
+			-- GUARDAMOS EL COLOR EN LA BASE DE DATOS
+			setStat:Fire(player, "Upgrades", keyToSave, colorData)
+			print("🎨 Color guardado para " .. player.Name .. ":", r, g, b)
+		end
+		
+		-- Consumimos el permiso
+		player:SetAttribute("PendingColorChange_" .. itemType, nil)
+	end
 end)

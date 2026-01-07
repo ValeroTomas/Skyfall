@@ -5,7 +5,7 @@ ShopConfig.MAX_LEVEL = 5
 -- PRECIOS (Monedas) - Estos se quedan igual
 ShopConfig.Prices = {
 	-- SALTO
-	JumpHeight = {100, 200, 350, 600, 1000},
+	JumpHeight = {125, 175, 200, 225, 250},
 	JumpStaminaCost = {150, 300, 500, 800, 1200},
 	DoubleJump = 2500, 
 	DoubleJumpColor = 5000, 
@@ -32,11 +32,11 @@ ShopConfig.Prices = {
 -- VALORES REALES (STATS) POR NIVEL [1 al 5]
 ShopConfig.Stats = {
 	-- SALTO 
-	JumpHeight = {50, 60, 70, 85, 100}, 
+	JumpHeight = {52, 54, 56, 58, 60}, 
 	
 	-- COSTE DE STAMINA (MULTIPLICADORES)
 	-- Nivel 1 = 100% del coste, Nivel 5 = 50% del coste
-	JumpStaminaCost = {1.0, 0.9, 0.8, 0.7, 0.5}, 
+	JumpStaminaCost = {1.0, 0.95, 0.9, 0.85, 0.8}, 
 	
 	-- EMPUJE
 	PushDistance = {50, 70, 90, 120, 150},

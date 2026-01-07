@@ -7,17 +7,17 @@ local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 local ShopConfig = require(sharedFolder:WaitForChild("ShopConfig"))
 
 -- CONFIGURACIÓN
-local DATA_VERSION = "v4.3" 
+local DATA_VERSION = "v5" -- Si cambiaste versión, asegúrate de mantener la misma
 local MyDataStore = DataStoreService:GetDataStore("PlayerData_" .. DATA_VERSION)
 
 local DefaultData = {
-	Coins = 0,
+	Coins = 999999,
 	Wins = 0,
 	Upgrades = {
 		JumpHeight = 1,
 		JumpStaminaCost = 1,
-		DoubleJump = true,
-		DoubleJumpColor = 1, -- O tabla RGB si avanzamos
+		DoubleJump = false,
+		DoubleJumpColor = 1, 
 		
 		PushUnlock = false,
 		PushDistance = 1,
@@ -74,30 +74,31 @@ local function reconcile(target, template)
 end
 
 -------------------------------------------------------------------------------
--- NUEVO: SINCRONIZADOR DE ATRIBUTOS
--- Convierte el Nivel (Ej: 3) en Valor Real (Ej: 150 Stamina) y lo pone en el Player
+-- SINCRONIZADOR DE ATRIBUTOS (MEJORADO PARA COLORES)
 -------------------------------------------------------------------------------
 local function syncAttributes(player, upgrades)
 	if not player or not upgrades then return end
 	
-	-- 1. Sincronizar Stats Numéricos (Niveles)
 	for key, level in pairs(upgrades) do
-		-- Si existe en la tabla de Stats de ShopConfig, buscamos su valor real
+		-- 1. Stats Numéricos (Niveles -> Valores Reales)
 		if ShopConfig.Stats[key] then
-			-- Asegurar que el nivel está en rango (1-5)
 			local safeLevel = math.clamp(level, 1, #ShopConfig.Stats[key])
 			local realValue = ShopConfig.Stats[key][safeLevel]
-			
-			-- Escribir atributo: Ej: player:GetAttribute("MaxStamina") devolverá 150
 			player:SetAttribute(key, realValue)
 			
-		-- 2. Sincronizar Booleanos/Desbloqueos (DoubleJump, PushUnlock, etc)
+		-- 2. Booleanos (Desbloqueos)
 		elseif type(level) == "boolean" then
 			player:SetAttribute(key, level)
+			
+		-- 3. COLORES (Tablas RGB -> Color3) [NUEVO]
+		-- Detectamos si es una tabla y tiene componente R (Rojo)
+		elseif type(level) == "table" and level.R then
+			local color = Color3.new(level.R, level.G, level.B)
+			player:SetAttribute(key, color)
 		end
 	end
 	
-	print("🔄 Stats sincronizados para " .. player.Name)
+	-- print("🔄 Stats sincronizados para " .. player.Name)
 end
 
 -- CARGAR DATOS

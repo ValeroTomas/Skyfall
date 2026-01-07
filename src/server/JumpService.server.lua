@@ -9,18 +9,13 @@ if not jumpEvent then
 	jumpEvent.Parent = ReplicatedStorage
 end
 
-local eventsFolder = ServerStorage:WaitForChild("PlayerDataEvents")
-local getStatFunction = eventsFolder:WaitForChild("GetPlayerStat")
-
+-- COLORES POR DEFECTO (Fallback)
 local TRAIL_COLORS = {
 	[0] = ColorSequence.new(Color3.fromRGB(255, 255, 255)),
 	[1] = ColorSequence.new(Color3.fromRGB(0, 255, 255)),
-	[2] = ColorSequence.new(Color3.fromRGB(255, 0, 0)),
-	[3] = ColorSequence.new(Color3.fromRGB(255, 255, 0)),
-	[4] = ColorSequence.new(Color3.fromRGB(170, 0, 255)),
 }
 
-local function spawnVisuals(character, colorId)
+local function spawnVisuals(character, colorAttribute)
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	local humanoid = character:FindFirstChild("Humanoid")
 	if not hrp or not humanoid then return end
@@ -35,7 +30,18 @@ local function spawnVisuals(character, colorId)
 	trail.Attachment0 = a0
 	trail.Attachment1 = a1
 	
-	trail.Color = TRAIL_COLORS[colorId] or TRAIL_COLORS[0]
+	-- LÓGICA DE COLOR INSTANTÁNEA
+	local finalColorSeq
+	
+	if typeof(colorAttribute) == "Color3" then
+		-- Si el atributo ya es un Color3 (Gracias a PlayerDataHandler nuevo)
+		finalColorSeq = ColorSequence.new(colorAttribute)
+	else
+		-- Si no hay atributo o es viejo, usamos Celeste por defecto
+		finalColorSeq = TRAIL_COLORS[1]
+	end
+	
+	trail.Color = finalColorSeq
 	trail.Transparency = NumberSequence.new(0.4, 1) 
 	trail.Lifetime = 0.5 
 	trail.FaceCamera = true
@@ -69,13 +75,15 @@ local function spawnVisuals(character, colorId)
 end
 
 jumpEvent.OnServerEvent:Connect(function(player)
-	-- SEGURIDAD: Si está agotado, ignoramos el evento
 	if player.Character and player.Character:GetAttribute("IsExhausted") then return end
 
-	local upgrades = getStatFunction:Invoke(player, "Upgrades")
-	if not upgrades or not upgrades.DoubleJump then return end
-
-	if player.Character then
-		spawnVisuals(player.Character, upgrades.DoubleJumpColor or 0)
+	-- CHECK RÁPIDO: Verificamos el atributo directamente en el Player
+	-- Esto es mucho más rápido que invocar GetPlayerStat
+	local hasDoubleJump = player:GetAttribute("DoubleJump") == true
+	
+	if hasDoubleJump and player.Character then
+		-- Leemos el color directo del atributo
+		local colorAttr = player:GetAttribute("DoubleJumpColor")
+		spawnVisuals(player.Character, colorAttr)
 	end
 end)

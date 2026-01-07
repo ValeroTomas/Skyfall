@@ -7,6 +7,7 @@ local DECALS = {
 	["Cart"]      = "rbxassetid://113277509630221",
 	["Dash"]      = "rbxassetid://97307955533015",
 	["Push"]      = "rbxassetid://76175865229928",
+	["DoubleJump"] = "rbxassetid://10000000000000",
 	
 	-- COUNTDOWN (HUDCenter)
 	["Count3"]    = "rbxassetid://82880615630562",

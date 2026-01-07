@@ -55,10 +55,10 @@ local languages = {
 		["LBL_ERR"] = "ERR",
 		["MSG_MISSING"] = "FALTAN $",
 		
-		["HEADER_JUMP"] = "--- SALTO ---",
-		["HEADER_PUSH"] = "--- EMPUJE ---",
-		["HEADER_DASH"] = "--- ESQUIVE ---",
-		["HEADER_STAMINA"] = "--- STAMINA ---",
+		["HEADER_JUMP"] = "SALTO",
+		["HEADER_PUSH"] = "EMPUJE",
+		["HEADER_DASH"] = "ESQUIVE",
+		["HEADER_STAMINA"] = "STAMINA",
 		
 		["ITEM_HEIGHT"] = "ALTURA",
 		["ITEM_COST"] = "COSTE STAMINA",
@@ -129,10 +129,10 @@ local languages = {
 		["LBL_ERR"] = "ERR",
 		["MSG_MISSING"] = "NEED $",
 		
-		["HEADER_JUMP"] = "--- JUMP ---",
-		["HEADER_PUSH"] = "--- PUSH ---",
-		["HEADER_DASH"] = "--- DASH ---",
-		["HEADER_STAMINA"] = "--- STAMINA ---",
+		["HEADER_JUMP"] = "JUMP",
+		["HEADER_PUSH"] = "PUSH",
+		["HEADER_DASH"] = "DASH",
+		["HEADER_STAMINA"] = "STAMINA",
 		
 		["ITEM_HEIGHT"] = "HEIGHT",
 		["ITEM_COST"] = "STAMINA COST",

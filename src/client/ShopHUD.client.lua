@@ -13,11 +13,11 @@ local ShopConfig = require(sharedFolder:WaitForChild("ShopConfig"))
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 local Localization = require(sharedFolder:WaitForChild("Localization")) 
 local FontManager = require(sharedFolder:WaitForChild("FontManager"))
+local DecalManager = require(sharedFolder:WaitForChild("DecalManager")) 
 
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
 local shopFunction = ReplicatedStorage:WaitForChild("ShopFunction")
 local colorEvent = ReplicatedStorage:WaitForChild("ColorUpdateEvent", 5)
-
 local toggleShopEvent = ReplicatedStorage:WaitForChild("ToggleShopEvent")
 
 local playerLang = LocalizationService.RobloxLocaleId:sub(1, 2)
@@ -25,412 +25,451 @@ local function getTxt(key, ...)
 	return Localization.get(key, playerLang, ...)
 end
 
-print("🛒 ShopHUD: Menú Interno Cargado.")
+local refreshAllTabs 
 
 -------------------------------------------------------------------
--- 1. UI SETUP
+-- MAPEO EXACTO DE ESTADÍSTICAS A LOCALIZATION
+-------------------------------------------------------------------
+local STAT_TO_LOCALE = {
+	JumpHeight = "ITEM_HEIGHT",
+	JumpStaminaCost = "ITEM_COST",
+	MaxStamina = "ITEM_AMOUNT",
+	StaminaRegen = "ITEM_REGEN",
+	StaminaDrain = "ITEM_EFFICIENCY",
+	PushDistance = "ITEM_DISTANCE",
+	PushRange = "ITEM_RANGE",
+	PushCooldown = "ITEM_COOLDOWN",
+	DashDistance = "ITEM_DISTANCE",
+	DashSpeed = "ITEM_SPEED",
+	DashCooldown = "ITEM_COOLDOWN"
+}
+
+local ABILITY_LIST = {
+	{Key = "DoubleJump", Icon = DecalManager.Get("DoubleJump"), NameKey = "ITEM_DOUBLE_JUMP", ColorKey = "DoubleJumpColor"}, 
+	{Key = "PushUnlock", Icon = DecalManager.Get("Push"), NameKey = "HEADER_PUSH"},
+	{Key = "DashUnlock", Icon = DecalManager.Get("Dash"), NameKey = "HEADER_DASH"},
+}
+
+local UPGRADE_GROUPS = {
+	{ Header = "HEADER_JUMP", Dependency = nil, Items = {"JumpHeight", "JumpStaminaCost"} },
+	{ Header = "HEADER_PUSH", Dependency = "PushUnlock", Items = {"PushDistance", "PushRange", "PushCooldown"} },
+	{ Header = "HEADER_DASH", Dependency = "DashUnlock", Items = {"DashDistance", "DashSpeed", "DashCooldown"} },
+	{ Header = "HEADER_STAMINA", Dependency = nil, Items = {"MaxStamina", "StaminaRegen", "StaminaDrain"} }
+}
+
+-------------------------------------------------------------------
+-- UTILS VISUALES
+-------------------------------------------------------------------
+local function applyGradient(obj, c1, c2, rot)
+	local g = obj:FindFirstChild("UIGradient") or Instance.new("UIGradient", obj)
+	g.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, c1),
+		ColorSequenceKeypoint.new(1, c2)
+	}
+	g.Rotation = rot or 90
+	return g
+end
+
+local function createDeepStroke(parent, color1, color2, thickness)
+	local s = Instance.new("UIStroke", parent)
+	s.Thickness = thickness
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Color = Color3.new(1,1,1) 
+	applyGradient(s, color1, color2, 45)
+	return s
+end
+
+-------------------------------------------------------------------
+-- 1. UI SETUP (MARCO PRINCIPAL)
 -------------------------------------------------------------------
 local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ShopMenuUI"
 screenGui.ResetOnSpawn = false
 screenGui.DisplayOrder = 20 
+screenGui.IgnoreGuiInset = true 
 
+-- BLOCKER
 local mainBlocker = Instance.new("TextButton", screenGui)
 mainBlocker.Name = "MainBlocker"
-mainBlocker.Size = UDim2.new(1,0,1,0); mainBlocker.BackgroundTransparency = 1; mainBlocker.Text = ""
-mainBlocker.Visible = false
-mainBlocker.ZIndex = 1
+mainBlocker.Size = UDim2.new(1,0,1,0)
+mainBlocker.BackgroundColor3 = Color3.new(0,0,0) 
+mainBlocker.BackgroundTransparency = 1 
+mainBlocker.Text = ""
+mainBlocker.Visible = false; mainBlocker.ZIndex = 1
+mainBlocker.AutoButtonColor = false 
 
--------------------------------------------------------------------
--- 2. MENÚ PRINCIPAL
--------------------------------------------------------------------
+-- MARCO EXTERIOR
 local menuFrame = Instance.new("Frame", screenGui)
 menuFrame.Name = "ShopMenu"
-menuFrame.Size = UDim2.new(0, 550, 0, 650)
-menuFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-menuFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-menuFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 45) 
-menuFrame.Visible = false
-menuFrame.ZIndex = 5 
-Instance.new("UICorner", menuFrame)
-local mStroke = Instance.new("UIStroke", menuFrame); mStroke.Thickness = 4; mStroke.Color = Color3.new(0,0,0)
+menuFrame.Size = UDim2.new(0, 750, 0, 550) 
+menuFrame.Position = UDim2.new(0.5, 0, 0.5, 0); menuFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+menuFrame.BackgroundColor3 = Color3.new(1,1,1)
+menuFrame.Visible = false; menuFrame.ZIndex = 5 
+Instance.new("UICorner", menuFrame).CornerRadius = UDim.new(0, 16)
 
+applyGradient(menuFrame, Color3.fromRGB(40, 45, 60), Color3.fromRGB(20, 22, 30), 45)
+createDeepStroke(menuFrame, Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 50, 150), 4)
+
+-- TÍTULO
 local title = Instance.new("TextLabel", menuFrame)
 title.Size = UDim2.new(1, 0, 0, 60); title.BackgroundTransparency = 1
 title.Text = getTxt("SHOP_TITLE")
-title.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
-title.TextSize = 40
-title.TextColor3 = Color3.fromRGB(255, 200, 50); title.Position = UDim2.new(0,0,0,5)
-title.ZIndex = 6
-local tStroke = Instance.new("UIStroke", title); tStroke.Thickness = 2
+title.FontFace = FontManager.Get("Cartoon")
+title.TextSize = 45
+title.TextColor3 = Color3.new(1,1,1)
+title.Position = UDim2.new(0,0,0,10); title.ZIndex = 6
+applyGradient(title, Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 170, 0), 90)
+local tStroke = Instance.new("UIStroke", title); tStroke.Thickness = 3; tStroke.Color = Color3.new(0,0,0)
 
-local scroll = Instance.new("ScrollingFrame", menuFrame)
-scroll.Size = UDim2.new(1, -30, 1, -80); scroll.Position = UDim2.new(0, 15, 0, 70)
-scroll.BackgroundTransparency = 1; scroll.ScrollBarThickness = 8
-scroll.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 200)
-scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-scroll.ZIndex = 6
-local layout = Instance.new("UIListLayout", scroll)
-layout.SortOrder = Enum.SortOrder.LayoutOrder; layout.Padding = UDim.new(0, 12)
+-- MARCO INTERNO
+local innerFrame = Instance.new("Frame", menuFrame)
+innerFrame.Name = "ContentArea"
+innerFrame.Size = UDim2.new(1, -30, 1, -150) 
+innerFrame.Position = UDim2.new(0.5, 0, 1, -20); innerFrame.AnchorPoint = Vector2.new(0.5, 1)
+innerFrame.BackgroundColor3 = Color3.new(1,1,1)
+innerFrame.ZIndex = 6
+Instance.new("UICorner", innerFrame).CornerRadius = UDim.new(0, 12)
+
+applyGradient(innerFrame, Color3.fromRGB(25, 27, 35), Color3.fromRGB(15, 15, 20), 90)
+createDeepStroke(innerFrame, Color3.fromRGB(60, 65, 80), Color3.fromRGB(30, 32, 40), 2)
 
 -------------------------------------------------------------------
--- 3. SELECTOR RGB
+-- 2. SISTEMA DE PESTAÑAS (MÁS ESPACIO)
 -------------------------------------------------------------------
-local rgbBlocker = Instance.new("TextButton", screenGui)
-rgbBlocker.Name = "RGBBlocker"
-rgbBlocker.Size = UDim2.new(1,0,1,0)
-rgbBlocker.BackgroundColor3 = Color3.new(0,0,0)
-rgbBlocker.BackgroundTransparency = 0.5
-rgbBlocker.Text = ""
-rgbBlocker.Visible = false
-rgbBlocker.ZIndex = 20
+local tabContainer = Instance.new("Frame", menuFrame)
+tabContainer.Name = "Tabs"
+tabContainer.Size = UDim2.new(1, -30, 0, 45) 
+tabContainer.Position = UDim2.new(0.5, 0, 0, 75); tabContainer.AnchorPoint = Vector2.new(0.5, 0)
+tabContainer.BackgroundTransparency = 1; tabContainer.ZIndex = 6
 
-local rgbFrame = Instance.new("Frame", screenGui)
-rgbFrame.Name = "RGBSelector"
-rgbFrame.Size = UDim2.new(0, 350, 0, 400)
-rgbFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-rgbFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-rgbFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 45)
-rgbFrame.Visible = false
-rgbFrame.ZIndex = 25 
-Instance.new("UICorner", rgbFrame)
-local rStroke = Instance.new("UIStroke", rgbFrame); rStroke.Thickness = 4; rStroke.Color = Color3.new(0,0,0)
+local currentTab = "Abilities"
+local tabButtons = {}
+local contentFrames = {}
 
-local rgbTitle = Instance.new("TextLabel", rgbFrame)
-rgbTitle.Size = UDim2.new(1,0,0,50); rgbTitle.BackgroundTransparency = 1
-rgbTitle.Text = getTxt("COLOR_SELECTOR")
-rgbTitle.TextColor3 = Color3.new(1,1,1)
-rgbTitle.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
-rgbTitle.TextSize = 28
-rgbTitle.ZIndex = 26
-local rgbTStroke = Instance.new("UIStroke", rgbTitle); rgbTStroke.Thickness = 2
-
-local previewContainer = Instance.new("Frame", rgbFrame)
-previewContainer.Size = UDim2.new(0, 80, 0, 80)
-previewContainer.Position = UDim2.new(0.5, 0, 0.25, 0)
-previewContainer.AnchorPoint = Vector2.new(0.5, 0.5)
-previewContainer.BackgroundColor3 = Color3.new(0,0,0)
-previewContainer.ZIndex = 26
-Instance.new("UICorner", previewContainer).CornerRadius = UDim.new(1,0)
-
-local preview = Instance.new("Frame", previewContainer)
-preview.Size = UDim2.new(0.85, 0, 0.85, 0)
-preview.AnchorPoint = Vector2.new(0.5, 0.5); preview.Position = UDim2.new(0.5,0,0.5,0)
-preview.BackgroundColor3 = Color3.new(1,1,1)
-preview.ZIndex = 27
-Instance.new("UICorner", preview).CornerRadius = UDim.new(1,0)
-
-local currentItemToColor = nil
-local rVal, gVal, bVal = 255, 255, 255
-
-local function createFancySlider(yPos, labelText, mainColor, callback)
-	local container = Instance.new("Frame", rgbFrame)
-	container.Size = UDim2.new(0.8, 0, 0, 30)
-	container.Position = UDim2.new(0.5, 0, yPos, 0)
-	container.AnchorPoint = Vector2.new(0.5, 0)
-	container.BackgroundTransparency = 1
-	container.ZIndex = 26
+local function createTabButton(name, text, layoutOrder)
+	local btn = Instance.new("TextButton", tabContainer)
+	btn.Name = name
+	btn.Size = UDim2.new(0.30, 0, 1, 0) 
+	btn.Position = UDim2.new((layoutOrder-1)*0.35, 0, 0, 0)
+	btn.BackgroundColor3 = Color3.new(1,1,1)
+	btn.Text = text
+	btn.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
+	btn.TextSize = 18
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.ZIndex = 7
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 	
-	local lab = Instance.new("TextLabel", container)
-	lab.Size = UDim2.new(0, 30, 1, 0)
-	lab.BackgroundTransparency = 1
-	lab.Text = labelText
-	lab.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
-	lab.TextSize = 24
-	lab.TextColor3 = mainColor
-	lab.ZIndex = 27
-	local lStroke = Instance.new("UIStroke", lab); lStroke.Thickness = 2
+	local txtStroke = Instance.new("UIStroke", btn)
+	txtStroke.Name = "TextStroke"; txtStroke.Color = Color3.new(0,0,0)
+	txtStroke.Thickness = 2; txtStroke.Transparency = 1 
 	
-	local track = Instance.new("Frame", container)
-	track.Size = UDim2.new(1, -40, 0, 10)
-	track.Position = UDim2.new(1, 0, 0.5, 0); track.AnchorPoint = Vector2.new(1, 0.5)
-	track.BackgroundColor3 = Color3.new(1,1,1)
-	track.ZIndex = 27
-	Instance.new("UICorner", track)
+	local grad = applyGradient(btn, Color3.fromRGB(80, 80, 90), Color3.fromRGB(50, 50, 60), 90)
+	local stroke = createDeepStroke(btn, Color3.fromRGB(120, 120, 130), Color3.fromRGB(60, 60, 70), 2)
 	
-	local grad = Instance.new("UIGradient", track)
-	grad.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.new(0,0,0)),
-		ColorSequenceKeypoint.new(1, mainColor)
+	tabButtons[name] = {Btn = btn, Grad = grad, Stroke = stroke, TxtStroke = txtStroke}
+	return btn
+end
+
+createTabButton("Abilities", "HABILIDADES", 1)
+createTabButton("Upgrades", "MEJORAS", 2)
+createTabButton("Coins", "MONEDAS", 3)
+
+local function createContentScroll(name)
+	local sc = Instance.new("ScrollingFrame", innerFrame)
+	sc.Name = name
+	sc.Size = UDim2.new(1, -20, 1, -20)
+	sc.Position = UDim2.new(0.5, 0, 0.5, 0); sc.AnchorPoint = Vector2.new(0.5, 0.5)
+	sc.BackgroundTransparency = 1
+	sc.ScrollBarThickness = 6
+	sc.ScrollBarImageColor3 = Color3.fromRGB(0, 200, 255)
+	sc.Visible = false
+	sc.ZIndex = 10
+	sc.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	
+	local lay = Instance.new("UIListLayout", sc)
+	lay.SortOrder = Enum.SortOrder.LayoutOrder
+	lay.Padding = UDim.new(0, 10)
+	
+	contentFrames[name] = sc
+	return sc
+end
+
+createContentScroll("Abilities")
+createContentScroll("Upgrades")
+createContentScroll("Coins")
+
+local function switchTab(tabName)
+	currentTab = tabName
+	SoundManager.Play("ShopButton")
+	for name, data in pairs(tabButtons) do
+		if name == tabName then
+			data.Grad.Color = ColorSequence.new(Color3.fromRGB(0, 200, 255), Color3.fromRGB(0, 100, 200))
+			data.Btn.TextColor3 = Color3.new(1,1,1) 
+			data.TxtStroke.Transparency = 0.5 
+		else
+			data.Grad.Color = ColorSequence.new(Color3.fromRGB(60, 60, 70), Color3.fromRGB(40, 40, 50))
+			data.Btn.TextColor3 = Color3.fromRGB(180, 180, 180) 
+			data.TxtStroke.Transparency = 1 
+		end
+	end
+	for name, frame in pairs(contentFrames) do frame.Visible = (name == tabName) end
+end
+
+for name, data in pairs(tabButtons) do
+	data.Btn.MouseButton1Click:Connect(function() switchTab(name) end)
+end
+
+-------------------------------------------------------------------
+-- 3. RENDERIZADO DE FILAS
+-------------------------------------------------------------------
+local function createStyledButton(parent, text, color1, color2)
+	local btn = Instance.new("TextButton", parent)
+	btn.Size = UDim2.new(0, 120, 0, 45)
+	btn.BackgroundColor3 = Color3.new(1,1,1)
+	btn.Text = "" -- Ocultamos el texto nativo
+	btn.AutoButtonColor = true 
+	btn.ZIndex = 12
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+	
+	applyGradient(btn, color1, color2, 90)
+	createDeepStroke(btn, Color3.new(1,1,1), Color3.new(0.5,0.5,0.5), 2).Color = Color3.new(0,0,0)
+	
+	-- TEXT LABEL PERSONALIZADO
+	local label = Instance.new("TextLabel", btn)
+	label.Size = UDim2.new(1,0,1,0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
+	label.TextSize = 22 -- MÁS GRANDE
+	label.TextColor3 = Color3.new(1,1,1)
+	label.ZIndex = 13
+	
+	-- Gradiente Blanco a Gris
+	local tGrad = Instance.new("UIGradient", label)
+	tGrad.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.new(1,1,1)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 180))
 	}
+	tGrad.Rotation = 90
 	
-	local knob = Instance.new("TextButton", track)
-	knob.Size = UDim2.new(0, 20, 0, 20)
-	knob.AnchorPoint = Vector2.new(0.5, 0.5)
-	knob.Position = UDim2.new(1, 0, 0.5, 0)
-	knob.Text = ""
-	knob.BackgroundColor3 = Color3.new(1,1,1)
-	knob.ZIndex = 28
-	Instance.new("UICorner", knob, UDim.new(1,0))
-	local kStroke = Instance.new("UIStroke", knob); kStroke.Thickness = 2; kStroke.Color = Color3.new(0,0,0)
+	-- Stroke Negro
+	local tStroke = Instance.new("UIStroke", label)
+	tStroke.Thickness = 2
+	tStroke.Color = Color3.new(0,0,0)
 	
-	local dragging = false
-	knob.MouseButton1Down:Connect(function() dragging = true end)
-	UserInputService.InputEnded:Connect(function(input) 
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end 
-	end)
-	
-	UserInputService.InputChanged:Connect(function(input)
-		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-			local relX = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-			knob.Position = UDim2.new(relX, 0, 0.5, 0)
-			callback(relX)
-		end
-	end)
+	return btn
 end
 
-local function updatePreview() 
-	preview.BackgroundColor3 = Color3.new(rVal, gVal, bVal) 
-end
-
-createFancySlider(0.48, "R", Color3.fromRGB(255, 50, 50), function(v) rVal = v; updatePreview() end)
-createFancySlider(0.63, "G", Color3.fromRGB(50, 255, 50), function(v) gVal = v; updatePreview() end)
-createFancySlider(0.78, "B", Color3.fromRGB(50, 80, 255), function(v) bVal = v; updatePreview() end)
-
-local confirmColor = Instance.new("TextButton", rgbFrame)
-confirmColor.Size = UDim2.new(0, 140, 0, 45); confirmColor.Position = UDim2.new(0.5, 0, 0.96, 0)
-confirmColor.AnchorPoint = Vector2.new(0.5, 1); confirmColor.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-confirmColor.Text = getTxt("BTN_CONFIRM") 
-confirmColor.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
-confirmColor.TextSize = 22
-confirmColor.TextColor3 = Color3.new(1,1,1)
-confirmColor.ZIndex = 27
-Instance.new("UICorner", confirmColor)
-local cBtnStroke = Instance.new("UIStroke", confirmColor); cBtnStroke.Thickness = 2; cBtnStroke.Color = Color3.new(0,0,0)
-
-confirmColor.MouseButton1Click:Connect(function()
-	if currentItemToColor and colorEvent then
-		SoundManager.Play("AbilityReady") 
-		colorEvent:FireServer(currentItemToColor, rVal, gVal, bVal)
-	end
-	rgbFrame.Visible = false
-	rgbBlocker.Visible = false
-end)
-
--------------------------------------------------------------------
--- 4. GENERADOR DE FILAS (TIENDA)
--------------------------------------------------------------------
-local rows = {}
-
-local function createRow(titleText, upgradeKey, isBool)
-	local row = Instance.new("Frame", scroll)
-	row.Size = UDim2.new(1, 0, 0, 80) 
-	row.BackgroundColor3 = Color3.fromRGB(45, 47, 60)
-	row.ZIndex = 7
-	Instance.new("UICorner", row)
+local function renderAbilityRow(config, playerData)
+	local isOwned = playerData[config.Key] == true
 	
-	local nameLab = Instance.new("TextLabel", row)
-	nameLab.Text = titleText
-	nameLab.Size = UDim2.new(0.4, 0, 0.4, 0); nameLab.Position = UDim2.new(0, 15, 0, 10)
-	nameLab.BackgroundTransparency = 1; nameLab.TextColor3 = Color3.new(1,1,1)
-	nameLab.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
-	nameLab.TextSize = 24 
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 90)
+	card.BackgroundColor3 = Color3.new(1,1,1)
+	card.ZIndex = 11
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+	applyGradient(card, Color3.fromRGB(50, 55, 70), Color3.fromRGB(35, 40, 50), 45)
+	createDeepStroke(card, Color3.fromRGB(80, 90, 110), Color3.fromRGB(40, 45, 55), 2)
+	
+	local iconBg = Instance.new("Frame", card)
+	iconBg.Size = UDim2.new(0, 70, 0, 70)
+	iconBg.Position = UDim2.new(0, 10, 0.5, 0); iconBg.AnchorPoint = Vector2.new(0, 0.5)
+	iconBg.BackgroundColor3 = Color3.new(0,0,0); iconBg.BackgroundTransparency = 0.5
+	iconBg.ZIndex = 12
+	Instance.new("UICorner", iconBg).CornerRadius = UDim.new(0, 8)
+	
+	local icon = Instance.new("ImageLabel", iconBg)
+	icon.Size = UDim2.new(0.8, 0, 0.8, 0)
+	icon.Position = UDim2.new(0.5,0,0.5,0); icon.AnchorPoint = Vector2.new(0.5,0.5)
+	icon.BackgroundTransparency = 1; icon.Image = config.Icon
+	icon.ZIndex = 13
+	
+	local nameLab = Instance.new("TextLabel", card)
+	nameLab.Text = getTxt(config.NameKey)
+	nameLab.Size = UDim2.new(0.5, 0, 0.4, 0)
+	nameLab.Position = UDim2.new(0, 95, 0, 10)
+	nameLab.BackgroundTransparency = 1
+	nameLab.TextColor3 = Color3.new(1,1,1)
+	nameLab.FontFace = FontManager.Get("Cartoon")
+	nameLab.TextSize = 26
 	nameLab.TextXAlignment = Enum.TextXAlignment.Left
-	nameLab.ZIndex = 8
-	local nStroke = Instance.new("UIStroke", nameLab); nStroke.Thickness = 2
+	nameLab.ZIndex = 12
 	
-	local priceLab = Instance.new("TextLabel", row)
-	priceLab.Size = UDim2.new(0.4, 0, 0.4, 0); priceLab.Position = UDim2.new(0, 15, 0.55, 0)
-	priceLab.BackgroundTransparency = 1; priceLab.TextColor3 = Color3.fromRGB(255, 230, 100)
-	priceLab.FontFace = Font.fromEnum(Enum.Font.GothamBlack) -- Mantenemos Gotham para números/precios
-	priceLab.TextSize = 20
-	priceLab.TextXAlignment = Enum.TextXAlignment.Left
-	priceLab.Text = "..."
-	priceLab.ZIndex = 8
+	if isOwned then
+		local acquired = Instance.new("TextLabel", card)
+		acquired.Text = getTxt("LBL_ACQUIRED")
+		acquired.Size = UDim2.new(0, 150, 0, 30)
+		acquired.Position = UDim2.new(1, -15, 0.5, 0); acquired.AnchorPoint = Vector2.new(1, 0.5)
+		acquired.BackgroundTransparency = 1
+		acquired.TextColor3 = Color3.fromRGB(100, 255, 100)
+		acquired.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
+		acquired.TextSize = 20
+		acquired.ZIndex = 12
+		
+		if config.ColorKey then
+			local colBtn = createStyledButton(card, getTxt("BTN_COLOR"), Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 100, 200))
+			colBtn.Size = UDim2.new(0, 100, 0, 35)
+			colBtn.Position = UDim2.new(0, 95, 0.85, 0); colBtn.AnchorPoint = Vector2.new(0, 1)
+			
+			colBtn.MouseButton1Click:Connect(function()
+				SoundManager.Play("ShopButton")
+			end)
+		end
+	else
+		local price = ShopConfig.Prices[config.Key]
+		local buyBtn = createStyledButton(
+			card, 
+			"$ " .. price, 
+			Color3.fromRGB(0, 220, 100), 
+			Color3.fromRGB(0, 150, 50)
+		)
+		buyBtn.Position = UDim2.new(1, -15, 0.5, 0); buyBtn.AnchorPoint = Vector2.new(1, 0.5)
+		
+		buyBtn.MouseButton1Click:Connect(function()
+			local s = shopFunction:InvokeServer("BuyUpgrade", config.Key)
+			if s then 
+				SoundManager.Play("UnlockSkill") 
+				refreshAllTabs() -- Refrescar sin cerrar
+			else 
+				SoundManager.Play("InsufficientFunds") 
+			end
+		end)
+	end
+	return card
+end
 
-	local buyBtn = Instance.new("TextButton", row)
-	buyBtn.Size = UDim2.new(0, 100, 0, 50); buyBtn.Position = UDim2.new(1, -15, 0.5, 0)
-	buyBtn.AnchorPoint = Vector2.new(1, 0.5); buyBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-	buyBtn.Text = getTxt("BTN_BUY") 
-	buyBtn.FontFace = Font.fromEnum(Enum.Font.GothamBlack) -- Botones en Gotham para legibilidad
-	buyBtn.TextSize = 16
-	buyBtn.ZIndex = 8
-	Instance.new("UICorner", buyBtn)
-	local bStroke = Instance.new("UIStroke", buyBtn); bStroke.Thickness = 2; bStroke.Color = Color3.new(0,0,0)
+local function renderUpgradeRow(key, playerData)
+	local lvl = playerData[key] or 1
+	local max = ShopConfig.MAX_LEVEL
 	
-	local squares = {}
-	if not isBool then
-		local progressContainer = Instance.new("Frame", row)
-		progressContainer.Size = UDim2.new(0, 150, 0, 25); progressContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
-		progressContainer.AnchorPoint = Vector2.new(0.5, 0.5); progressContainer.BackgroundTransparency = 1
-		progressContainer.ZIndex = 8
-		local pLayout = Instance.new("UIListLayout", progressContainer)
-		pLayout.FillDirection = Enum.FillDirection.Horizontal; pLayout.Padding = UDim.new(0, 6)
-		for i = 1, 5 do
-			local sq = Instance.new("Frame", progressContainer)
-			sq.Size = UDim2.new(0, 25, 0, 25)
-			sq.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-			sq.ZIndex = 9
-			Instance.new("UICorner", sq).CornerRadius = UDim.new(0, 4)
-			local sqStroke = Instance.new("UIStroke", sq); sqStroke.Thickness = 2; sqStroke.Color = Color3.new(0,0,0)
-			table.insert(squares, sq)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, 0, 0, 70)
+	row.BackgroundTransparency = 1
+	row.ZIndex = 11
+	
+	local title = Instance.new("TextLabel", row)
+	local localeKey = STAT_TO_LOCALE[key] or key 
+	title.Text = getTxt(localeKey)
+	
+	title.Size = UDim2.new(0.3, 0, 1, 0)
+	title.Position = UDim2.new(0, 10, 0, 0)
+	title.BackgroundTransparency = 1
+	title.TextColor3 = Color3.new(0.9, 0.9, 0.9)
+	title.FontFace = Font.fromEnum(Enum.Font.GothamBold)
+	title.TextSize = 18
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.ZIndex = 12
+	
+	-- BARRA DE PROGRESO (CENTRADA)
+	local barCont = Instance.new("Frame", row)
+	barCont.Size = UDim2.new(0.4, 0, 0.4, 0)
+	barCont.Position = UDim2.new(0.5, 0, 0.5, 0); barCont.AnchorPoint = Vector2.new(0.5, 0.5)
+	barCont.BackgroundTransparency = 1
+	barCont.ZIndex = 12
+	local blay = Instance.new("UIListLayout", barCont)
+	blay.FillDirection = Enum.FillDirection.Horizontal
+	blay.Padding = UDim.new(0, 5)
+	blay.HorizontalAlignment = Enum.HorizontalAlignment.Center 
+	
+	for i = 1, max do
+		local sq = Instance.new("Frame", barCont)
+		sq.Size = UDim2.new(0, 20, 1, 0)
+		sq.BackgroundColor3 = Color3.new(1,1,1)
+		sq.ZIndex = 13
+		Instance.new("UICorner", sq).CornerRadius = UDim.new(0, 4)
+		
+		if i <= lvl then
+			applyGradient(sq, Color3.fromRGB(0, 200, 255), Color3.fromRGB(0, 100, 200), 90)
+		else
+			applyGradient(sq, Color3.fromRGB(60, 60, 60), Color3.fromRGB(40, 40, 40), 90)
 		end
 	end
 	
-	return {Frame = row, Btn = buyBtn, Squares = squares, PriceLabel = priceLab, Key = upgradeKey, IsBool = isBool}
+	if lvl >= max then
+		local maxLab = Instance.new("TextLabel", row)
+		maxLab.Text = "MAX"
+		maxLab.Size = UDim2.new(0, 80, 1, 0)
+		maxLab.Position = UDim2.new(1, -10, 0, 0); maxLab.AnchorPoint = Vector2.new(1, 0)
+		maxLab.BackgroundTransparency = 1
+		maxLab.TextColor3 = Color3.fromRGB(0, 255, 255)
+		maxLab.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
+		maxLab.TextSize = 20
+		maxLab.ZIndex = 12
+	else
+		local price = ShopConfig.Prices[key][lvl]
+		local upBtn = createStyledButton(
+			row, 
+			"$ " .. price, 
+			Color3.fromRGB(255, 200, 50), 
+			Color3.fromRGB(200, 150, 0)
+		)
+		upBtn.Size = UDim2.new(0, 80, 0, 35)
+		upBtn.Position = UDim2.new(1, -10, 0.5, 0); upBtn.AnchorPoint = Vector2.new(1, 0.5)
+		
+		upBtn.MouseButton1Click:Connect(function()
+			local s = shopFunction:InvokeServer("BuyUpgrade", key)
+			if s then 
+				SoundManager.Play("BuyUpgrade") 
+				refreshAllTabs()
+			else 
+				SoundManager.Play("InsufficientFunds") 
+			end
+		end)
+	end
+	return row
 end
 
-local function addHeader(text)
-	local h = Instance.new("TextLabel", scroll)
-	h.Size = UDim2.new(1,0,0,40); h.BackgroundTransparency=1
-	h.Text = text; h.TextColor3 = Color3.fromRGB(0, 255, 255)
-	h.FontFace = FontManager.Get("Cartoon") -- FUENTE PERSONALIZADA
-	h.TextSize = 28
-	h.ZIndex = 7
-	local hStroke = Instance.new("UIStroke", h); hStroke.Thickness = 3
-end
-
-addHeader(getTxt("HEADER_JUMP"))
-table.insert(rows, createRow(getTxt("ITEM_HEIGHT"), "JumpHeight"))
-table.insert(rows, createRow(getTxt("ITEM_COST"), "JumpStaminaCost"))
-table.insert(rows, createRow(getTxt("ITEM_DOUBLE_JUMP"), "DoubleJump", true))
-table.insert(rows, createRow(getTxt("ITEM_JUMP_COLOR"), "DoubleJumpColor", true))
-
-addHeader(getTxt("HEADER_PUSH"))
-table.insert(rows, createRow(getTxt("ITEM_UNLOCK"), "PushUnlock", true))
-table.insert(rows, createRow(getTxt("ITEM_DISTANCE"), "PushDistance"))
-table.insert(rows, createRow(getTxt("ITEM_RANGE"), "PushRange"))
-table.insert(rows, createRow(getTxt("ITEM_COOLDOWN"), "PushCooldown"))
-
-addHeader(getTxt("HEADER_DASH"))
-table.insert(rows, createRow(getTxt("ITEM_UNLOCK"), "DashUnlock", true)) 
-table.insert(rows, createRow(getTxt("ITEM_DISTANCE"), "DashDistance"))
-table.insert(rows, createRow(getTxt("ITEM_SPEED"), "DashSpeed"))
-table.insert(rows, createRow(getTxt("ITEM_COOLDOWN"), "DashCooldown"))
-table.insert(rows, createRow(getTxt("ITEM_DASH_COLOR"), "DashColor", true))
-
-addHeader(getTxt("HEADER_STAMINA"))
-table.insert(rows, createRow(getTxt("ITEM_AMOUNT"), "MaxStamina"))
-table.insert(rows, createRow(getTxt("ITEM_REGEN"), "StaminaRegen"))
-table.insert(rows, createRow(getTxt("ITEM_EFFICIENCY"), "StaminaDrain"))
-
 -------------------------------------------------------------------
--- 5. LÓGICA DE ACTUALIZACIÓN VISUAL Y SONORA
+-- 4. REFRESCAR TIENDA
 -------------------------------------------------------------------
-local function refreshShopUI()
+refreshAllTabs = function()
 	local success, data = pcall(function() return shopFunction:InvokeServer("GetData") end)
 	if not success or not data then return end
-
-	for _, rowData in ipairs(rows) do
-		local key = rowData.Key
-		local lvl = data[key] or 1
-		local isBool = rowData.IsBool
+	
+	local abScroll = contentFrames["Abilities"]
+	for _, c in pairs(abScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+	for _, abilityConfig in ipairs(ABILITY_LIST) do
+		local card = renderAbilityRow(abilityConfig, data)
+		card.Parent = abScroll
+	end
+	
+	local upScroll = contentFrames["Upgrades"]
+	for _, c in pairs(upScroll:GetChildren()) do if c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end end
+	for _, group in ipairs(UPGRADE_GROUPS) do
+		local showGroup = true
+		if group.Dependency and not data[group.Dependency] then showGroup = false end
 		
-		local isLocked = false
-		if key == "DoubleJumpColor" and not data.DoubleJump then isLocked = true end
-		if (key:match("Push") and key ~= "PushUnlock") and not data.PushUnlock then isLocked = true end
-		if (key:match("Dash") and key ~= "DashUnlock") and not data.DashUnlock then isLocked = true end
-
-		if rowData.Conn then rowData.Conn:Disconnect() end
-
-		if isLocked then
-			rowData.Btn.Text = getTxt("BTN_LOCKED") 
-			rowData.Btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-			rowData.Btn.AutoButtonColor = false
-			rowData.PriceLabel.Text = getTxt("LBL_LOCKED") 
-			rowData.PriceLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-			if rowData.Squares then
-				for _, sq in ipairs(rowData.Squares) do sq.BackgroundColor3 = Color3.fromRGB(50, 50, 50) end
-			end
-		else
-			rowData.Btn.AutoButtonColor = true
-			if isBool then
-				if lvl == true then
-					rowData.Btn.Text = getTxt("BTN_READY") 
-					rowData.Btn.BackgroundColor3 = Color3.fromRGB(100, 100, 150)
-					rowData.PriceLabel.Text = getTxt("LBL_ACQUIRED") 
-					
-					if ShopConfig.SpecialItems and ShopConfig.SpecialItems[key] then
-						rowData.Btn.Text = getTxt("BTN_COLOR") 
-						rowData.Btn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-						rowData.PriceLabel.Text = getTxt("LBL_CHANGE") 
-						rowData.Conn = rowData.Btn.MouseButton1Click:Connect(function()
-							currentItemToColor = (key == "DoubleJumpColor" and "DoubleJump" or "Dash")
-							rgbFrame.Visible = true
-							rgbBlocker.Visible = true
-						end)
-					end
-				else
-					local price = ShopConfig.Prices[key]
-					rowData.PriceLabel.Text = "$" .. (price or getTxt("LBL_ERR"))
-					rowData.PriceLabel.TextColor3 = Color3.fromRGB(255, 230, 100)
-					rowData.Btn.Text = getTxt("BTN_BUY") 
-					rowData.Btn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-					
-					rowData.Conn = rowData.Btn.MouseButton1Click:Connect(function()
-						local s, msg = shopFunction:InvokeServer("BuyUpgrade", key)
-						
-						-- FEEDBACK SONORO (Pre-Cargado)
-						if s then 
-							SoundManager.Play("UnlockSkill")
-							if msg == "SELECT_COLOR" then
-								refreshShopUI()
-								currentItemToColor = (key == "DoubleJumpColor" and "DoubleJump" or "Dash")
-								rgbFrame.Visible = true
-								rgbBlocker.Visible = true
-							else
-								refreshShopUI() 
-							end
-						else
-							SoundManager.Play("InsufficientFunds") 
-							
-							local oldText = rowData.Btn.Text
-							local oldColor = rowData.Btn.BackgroundColor3
-							rowData.Btn.Text = getTxt("MSG_MISSING") 
-							rowData.Btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-							task.delay(1, function()
-								rowData.Btn.Text = oldText
-								rowData.Btn.BackgroundColor3 = oldColor
-							end)
-						end
-					end)
-				end
-			else
-				for i, sq in ipairs(rowData.Squares) do
-					if i <= lvl then
-						sq.BackgroundColor3 = Color3.fromRGB(0, 255, 255) 
-					else
-						sq.BackgroundColor3 = Color3.fromRGB(80, 0, 0) 
-					end
-				end
-				
-				if lvl >= ShopConfig.MAX_LEVEL then
-					rowData.PriceLabel.Text = getTxt("LBL_MAX") 
-					rowData.Btn.Visible = false
-				else
-					local price = ShopConfig.Prices[key][lvl]
-					rowData.PriceLabel.Text = "$" .. (price or "???")
-					rowData.PriceLabel.TextColor3 = Color3.fromRGB(255, 230, 100)
-					rowData.Btn.Visible = true
-					rowData.Btn.Text = getTxt("BTN_UPGRADE") 
-					rowData.Btn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-					
-					rowData.Conn = rowData.Btn.MouseButton1Click:Connect(function()
-						local s, msg = shopFunction:InvokeServer("BuyUpgrade", key)
-						
-						if s then
-							SoundManager.Play("BuyUpgrade")
-							refreshShopUI()
-						else
-							SoundManager.Play("InsufficientFunds")
-							local oldText = rowData.Btn.Text
-							local oldColor = rowData.Btn.BackgroundColor3
-							rowData.Btn.Text = getTxt("MSG_MISSING")
-							rowData.Btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-							task.delay(1, function()
-								rowData.Btn.Text = oldText
-								rowData.Btn.BackgroundColor3 = oldColor
-							end)
-						end
-					end)
-				end
+		if showGroup then
+			local h = Instance.new("TextLabel", upScroll)
+			h.Text = getTxt(group.Header)
+			h.Size = UDim2.new(1, 0, 0, 30)
+			h.BackgroundTransparency = 1
+			h.TextColor3 = Color3.fromRGB(0, 255, 255)
+			h.FontFace = FontManager.Get("Cartoon")
+			h.TextSize = 24
+			h.ZIndex = 12
+			
+			for _, itemKey in ipairs(group.Items) do
+				local row = renderUpgradeRow(itemKey, data)
+				row.Parent = upScroll
 			end
 		end
+	end
+	
+	local coinScroll = contentFrames["Coins"]
+	if #coinScroll:GetChildren() == 1 then
+		local info = Instance.new("TextLabel", coinScroll)
+		info.Text = "PRÓXIMAMENTE"
+		info.Size = UDim2.new(1, 0, 1, 0)
+		info.BackgroundTransparency = 1
+		info.TextColor3 = Color3.fromRGB(100, 100, 100)
+		info.FontFace = FontManager.Get("Cartoon")
+		info.TextSize = 40
 	end
 end
 
 -------------------------------------------------------------------
--- 6. CONTROL DE ESTADO
+-- 5. CONTROL DE APERTURA
 -------------------------------------------------------------------
 local isOpen = false
 
@@ -438,29 +477,44 @@ local function toggleMenu()
 	isOpen = not isOpen
 	menuFrame.Visible = isOpen
 	mainBlocker.Visible = isOpen 
+	
 	if isOpen then
-		refreshShopUI()
+		SoundManager.Play("ShopButton") 
+		
+		local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Sine)
+		TweenService:Create(mainBlocker, tweenInfo, {BackgroundTransparency = 0.4}):Play() 
+		
+		switchTab("Abilities") 
+		refreshAllTabs()
+		
+		task.spawn(function()
+			while isOpen do
+				refreshAllTabs()
+				break 
+			end
+		end)
 	else
-		rgbFrame.Visible = false
-		rgbBlocker.Visible = false
+		mainBlocker.BackgroundTransparency = 1
 	end
 end
 
 mainBlocker.MouseButton1Click:Connect(function() if isOpen then toggleMenu() end end)
-
 toggleShopEvent.Event:Connect(toggleMenu)
+
+task.spawn(function()
+	while true do
+		wait(0.5)
+		if isOpen then refreshAllTabs() end 
+	end
+end)
 
 local function checkGameState()
 	local raw = estadoValue.Value
 	local state = string.split(raw, "|")[1]
-	
 	if state == "SURVIVE" then
 		isOpen = false
 		menuFrame.Visible = false
 		mainBlocker.Visible = false
-		rgbFrame.Visible = false
-		rgbBlocker.Visible = false
 	end
 end
-
 estadoValue.Changed:Connect(checkGameState)

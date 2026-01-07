@@ -18,8 +18,10 @@ local SOUNDS = {
 	["StaminaEmpty"]      = {Id = "rbxassetid://140910216",       Vol = 1,   Group = "UI"},
 
 	-- TIENDA
-	["BuyUpgrade"]        = {Id = "rbxassetid://88761861442974",   Vol = 1,   Group = "UI"},
+	["BuyUpgrade"]        = {Id = "rbxassetid://5852470908",   Vol = 1,   Group = "UI"},
 	["UnlockSkill"]       = {Id = "rbxassetid://87197772183227",   Vol = 1,   Group = "UI"},
+	["ShopButton"]      = {Id = "rbxassetid://5852470908",         Vol = 0.5, Group = "UI"},
+	["NoMoney"]         = {Id = "rbxassetid://8968249849",   Vol = 0.7, Group = "UI"},
 
 	-- HABILIDADES
 	["Dash"]              = {Id = "rbxassetid://9117879142",       Vol = 0.6, Group = "SFX"},

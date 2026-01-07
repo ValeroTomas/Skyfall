@@ -4,7 +4,9 @@ local TweenService = game:GetService("TweenService")
 -- Función para limpiar y aplicar estilo Cartoon
 function HUD_Utils.ApplyCartoonStyle(textLabel, colorTop, colorBottom, strokeColor)
 	textLabel.TextColor3 = Color3.new(1, 1, 1) 
-	textLabel.Font = Enum.Font.LuckiestGuy 
+	
+	-- CAMBIO DE FUENTE: Usamos FontFace para IDs personalizados
+	textLabel.FontFace = Font.new("rbxassetid://12187370000")
 	
 	-- Limpiar efectos anteriores
 	for _, child in pairs(textLabel:GetChildren()) do

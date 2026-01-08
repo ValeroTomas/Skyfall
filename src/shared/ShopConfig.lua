@@ -5,34 +5,34 @@ ShopConfig.MAX_LEVEL = 5
 -- PRECIOS (Monedas) - Estos se quedan igual
 ShopConfig.Prices = {
 	-- SALTO
-	JumpHeight = {125, 175, 200, 225, 250},
-	JumpStaminaCost = {150, 300, 500, 800, 1200},
-	DoubleJump = 2500, 
+	JumpHeight = {125, 200, 250, 325, 400},
+	JumpStaminaCost = {150, 300, 450, 900, 1300},
+	DoubleJump = 3750, 
 	DoubleJumpColor = 5000, 
 	
 	-- EMPUJE
-	PushUnlock = 2000, 
-	PushDistance = {100, 250, 450, 700, 1100},
-	PushRange = {100, 250, 450, 700, 1100},
-	PushCooldown = {200, 400, 700, 1000, 1500},
+	PushUnlock = 3250, 
+	PushDistance = {125, 250, 450, 700, 1100},
+	PushRange = {125, 250, 450, 700, 1100},
+	PushCooldown = {125, 400, 700, 1000, 1500},
 	
 	-- ESQUIVE
-	DashUnlock = 3000, 
-	DashDistance = {200, 400, 700, 1100, 1600},
-	DashCooldown = {200, 400, 700, 1100, 1600},
-	DashSpeed = {150, 300, 500, 800, 1200},
+	DashUnlock = 3250, 
+	DashDistance = {125, 400, 700, 1100, 1600},
+	DashCooldown = {125, 400, 700, 1100, 1600},
+	DashSpeed = {125, 300, 500, 800, 1200},
 	DashColor = 5000, 
 	
 	-- STAMINA
-	MaxStamina = {100, 250, 450, 750, 1200},
-	StaminaRegen = {150, 300, 550, 900, 1400},
-	StaminaDrain = {150, 300, 550, 900, 1400},
+	MaxStamina = {100, 250, 500, 900, 1300},
+	StaminaRegen = {250, 500, 750, 1000, 1500},
+	StaminaDrain = {350, 700, 900, 1500, 2000},
 }
 
 -- VALORES REALES (STATS) POR NIVEL [1 al 5]
 ShopConfig.Stats = {
 	-- SALTO 
-	JumpHeight = {52, 54, 56, 58, 60}, 
+	JumpHeight = {54, 56, 58, 60, 63}, 
 	
 	-- COSTE DE STAMINA (MULTIPLICADORES)
 	-- Nivel 1 = 100% del coste, Nivel 5 = 50% del coste

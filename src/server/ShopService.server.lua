@@ -29,9 +29,6 @@ function shopFunction.OnServerInvoke(player, action, upgradeName, extraData)
 		local currentLevel = upgrades[upgradeName]
 		
 		-- VALIDACIÓN
-		if upgradeName == "DoubleJumpColor" and upgrades.DoubleJump ~= true then
-			return false, "Requiere Doble Salto"
-		end
 		if (upgradeName:match("Push") and upgradeName ~= "PushUnlock") and upgrades.PushUnlock ~= true then
 			return false, "Desbloquea Empuje primero"
 		end
@@ -56,13 +53,9 @@ function shopFunction.OnServerInvoke(player, action, upgradeName, extraData)
 			setStat:Fire(player, "Coins", coins - price)
 			
 			if ShopConfig.SpecialItems[upgradeName] then
-				-- Autorizamos el cambio de color
-				player:SetAttribute("PendingColorChange_" .. (upgradeName == "DoubleJumpColor" and "DoubleJump" or "Dash"), true)
-				
-				-- Marcamos la mejora como comprada (true)
-				-- NOTA: El color en sí se guarda luego vía el evento ColorUpdateEvent
+				-- Se compra el ítem especial
 				setStat:Fire(player, "Upgrades", upgradeName, true)
-				return true, "SELECT_COLOR"
+				return true, "Compra Exitosa"
 			elseif upgradeName:match("Unlock") or upgradeName == "DoubleJump" then
 				setStat:Fire(player, "Upgrades", upgradeName, true)
 			else
@@ -77,7 +70,7 @@ function shopFunction.OnServerInvoke(player, action, upgradeName, extraData)
 	return false
 end
 
--- EVENTO DE GUARDADO DE COLOR (CORREGIDO)
+-- EVENTO DE GUARDADO DE COLOR (ACTUALIZADO)
 local colorEvent = ReplicatedStorage:FindFirstChild("ColorUpdateEvent")
 if not colorEvent then
 	colorEvent = Instance.new("RemoteEvent")
@@ -86,27 +79,19 @@ if not colorEvent then
 end
 
 colorEvent.OnServerEvent:Connect(function(player, itemType, r, g, b)
-	-- Verificamos si tiene permiso pendiente (compró el cambio de color)
-	if player:GetAttribute("PendingColorChange_" .. itemType) then
-		
-		-- Creamos la tabla de color
+	local upgrades = getStat:Invoke(player, "Upgrades")
+	local keyToSave = nil
+	
+	-- Validamos que el jugador tenga la habilidad base antes de permitir cambiar el color
+	if itemType == "DoubleJump" and upgrades.DoubleJump == true then
+		keyToSave = "DoubleJumpColor"
+	elseif itemType == "Dash" and upgrades.DashUnlock == true then
+		keyToSave = "DashColor"
+	end
+	
+	if keyToSave then
 		local colorData = {R = r, G = g, B = b}
-		
-		-- Determinamos qué clave guardar en la DB
-		local keyToSave = ""
-		if itemType == "DoubleJump" then
-			keyToSave = "DoubleJumpColor"
-		elseif itemType == "Dash" then
-			keyToSave = "DashColor"
-		end
-		
-		if keyToSave ~= "" then
-			-- GUARDAMOS EL COLOR EN LA BASE DE DATOS
-			setStat:Fire(player, "Upgrades", keyToSave, colorData)
-			print("🎨 Color guardado para " .. player.Name .. ":", r, g, b)
-		end
-		
-		-- Consumimos el permiso
-		player:SetAttribute("PendingColorChange_" .. itemType, nil)
+		setStat:Fire(player, "Upgrades", keyToSave, colorData)
+		print("🎨 Color guardado para " .. player.Name .. " (" .. keyToSave .. "):", r, g, b)
 	end
 end)

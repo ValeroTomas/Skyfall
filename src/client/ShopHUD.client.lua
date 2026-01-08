@@ -47,7 +47,7 @@ local STAT_TO_LOCALE = {
 local ABILITY_LIST = {
 	{Key = "DoubleJump", Icon = DecalManager.Get("DoubleJump"), NameKey = "ITEM_DOUBLE_JUMP", ColorKey = "DoubleJumpColor"}, 
 	{Key = "PushUnlock", Icon = DecalManager.Get("Push"), NameKey = "HEADER_PUSH"},
-	{Key = "DashUnlock", Icon = DecalManager.Get("Dash"), NameKey = "HEADER_DASH"},
+	{Key = "DashUnlock", Icon = DecalManager.Get("Dash"), NameKey = "HEADER_DASH", ColorKey = "DashColor"},
 }
 
 local UPGRADE_GROUPS = {
@@ -105,6 +105,7 @@ menuFrame.Size = UDim2.new(0, 750, 0, 550)
 menuFrame.Position = UDim2.new(0.5, 0, 0.5, 0); menuFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 menuFrame.BackgroundColor3 = Color3.new(1,1,1)
 menuFrame.Visible = false; menuFrame.ZIndex = 5 
+menuFrame.Active = true -- <--- CORRECCIÓN: EVITA QUE EL CLICK PASE AL BLOCKER
 Instance.new("UICorner", menuFrame).CornerRadius = UDim.new(0, 16)
 
 applyGradient(menuFrame, Color3.fromRGB(40, 45, 60), Color3.fromRGB(20, 22, 30), 45)
@@ -134,7 +135,7 @@ applyGradient(innerFrame, Color3.fromRGB(25, 27, 35), Color3.fromRGB(15, 15, 20)
 createDeepStroke(innerFrame, Color3.fromRGB(60, 65, 80), Color3.fromRGB(30, 32, 40), 2)
 
 -------------------------------------------------------------------
--- 2. SISTEMA DE PESTAÑAS (MÁS ESPACIO)
+-- 2. SISTEMA DE PESTAÑAS
 -------------------------------------------------------------------
 local tabContainer = Instance.new("Frame", menuFrame)
 tabContainer.Name = "Tabs"
@@ -220,13 +221,149 @@ for name, data in pairs(tabButtons) do
 end
 
 -------------------------------------------------------------------
--- 3. RENDERIZADO DE FILAS
+-- 3. SELECTOR DE COLOR (GRID SYSTEM 30 COLORES - AJUSTADO)
+-------------------------------------------------------------------
+-- MARCO SELECTOR
+local rgbFrame = Instance.new("Frame", screenGui)
+rgbFrame.Name = "RGBSelector"
+rgbFrame.Size = UDim2.new(0, 450, 0, 550) -- AJUSTADO (Antes 350x480)
+rgbFrame.Position = UDim2.new(0.5, 0, 0.5, 0); rgbFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+rgbFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 45)
+rgbFrame.Visible = false; rgbFrame.ZIndex = 25 
+rgbFrame.Active = true -- <--- CORRECCIÓN: EVITA CIERRE AL CLICKEAR SELECTOR
+Instance.new("UICorner", rgbFrame)
+applyGradient(rgbFrame, Color3.fromRGB(40, 45, 60), Color3.fromRGB(20, 22, 30), 45)
+createDeepStroke(rgbFrame, Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 50, 150), 4)
+
+local rgbTitle = Instance.new("TextLabel", rgbFrame)
+rgbTitle.Size = UDim2.new(1,0,0,50); rgbTitle.BackgroundTransparency = 1
+rgbTitle.Text = getTxt("COLOR_SELECTOR")
+rgbTitle.TextColor3 = Color3.new(1,1,1)
+rgbTitle.FontFace = FontManager.Get("Cartoon")
+rgbTitle.TextSize = 28; rgbTitle.ZIndex = 26
+local rgbTStroke = Instance.new("UIStroke", rgbTitle); rgbTStroke.Thickness = 2; rgbTStroke.Color = Color3.new(0,0,0)
+
+-- PREVIEW BOX
+local previewContainer = Instance.new("Frame", rgbFrame)
+previewContainer.Size = UDim2.new(0, 80, 0, 80)
+previewContainer.Position = UDim2.new(0.5, 0, 0.18, 0); previewContainer.AnchorPoint = Vector2.new(0.5, 0)
+previewContainer.BackgroundColor3 = Color3.new(0,0,0); previewContainer.ZIndex = 26
+Instance.new("UICorner", previewContainer).CornerRadius = UDim.new(1,0)
+
+local preview = Instance.new("Frame", previewContainer)
+preview.Size = UDim2.new(0.85, 0, 0.85, 0)
+preview.AnchorPoint = Vector2.new(0.5, 0.5); preview.Position = UDim2.new(0.5,0,0.5,0)
+preview.BackgroundColor3 = Color3.new(1,1,1); preview.ZIndex = 27
+Instance.new("UICorner", preview).CornerRadius = UDim.new(1,0)
+
+-- ESTADO
+local currentItemToColor = nil
+local selectedColor = Color3.new(1,1,1)
+
+-- PALETA DE 30 COLORES
+local COLORS_PALETTE = {
+	Color3.fromRGB(255, 0, 0), Color3.fromRGB(255, 85, 0), Color3.fromRGB(255, 170, 0), Color3.fromRGB(255, 255, 0),
+	Color3.fromRGB(170, 255, 0), Color3.fromRGB(85, 255, 0), Color3.fromRGB(0, 255, 0), Color3.fromRGB(0, 255, 85),
+	Color3.fromRGB(0, 255, 170), Color3.fromRGB(0, 255, 255), Color3.fromRGB(0, 170, 255), Color3.fromRGB(0, 85, 255),
+	Color3.fromRGB(0, 0, 255), Color3.fromRGB(85, 0, 255), Color3.fromRGB(170, 0, 255), Color3.fromRGB(255, 0, 255),
+	Color3.fromRGB(255, 0, 170), Color3.fromRGB(255, 0, 85), Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200),
+	Color3.fromRGB(150, 150, 150), Color3.fromRGB(100, 100, 100), Color3.fromRGB(50, 50, 50), Color3.fromRGB(0, 0, 0),
+	Color3.fromRGB(80, 40, 0), Color3.fromRGB(139, 69, 19), Color3.fromRGB(210, 105, 30), Color3.fromRGB(244, 164, 96),
+	Color3.fromRGB(255, 20, 147), Color3.fromRGB(75, 0, 130)
+}
+
+-- CONTENEDOR CON SCROLL PARA LA GRILLA
+local gridContainer = Instance.new("ScrollingFrame", rgbFrame)
+gridContainer.Size = UDim2.new(0.9, 0, 0.45, 0)
+gridContainer.Position = UDim2.new(0.5, 0, 0.42, 0); gridContainer.AnchorPoint = Vector2.new(0.5, 0)
+gridContainer.BackgroundTransparency = 1; gridContainer.ZIndex = 26
+gridContainer.ScrollBarThickness = 6; gridContainer.ScrollBarImageColor3 = Color3.fromRGB(0, 200, 200)
+gridContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+gridContainer.CanvasSize = UDim2.new(0,0,0,0)
+
+local gridLayout = Instance.new("UIGridLayout", gridContainer)
+gridLayout.CellSize = UDim2.new(0, 45, 0, 45)
+gridLayout.CellPadding = UDim2.new(0, 8, 0, 8)
+gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- CREAR BOTONES DE COLOR
+for _, col in ipairs(COLORS_PALETTE) do
+	local btn = Instance.new("TextButton", gridContainer)
+	btn.BackgroundColor3 = col
+	btn.Text = ""; btn.ZIndex = 27
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+	
+	local s = Instance.new("UIStroke", btn)
+	s.Thickness = 2; s.Color = Color3.new(1,1,1); s.Transparency = 0.7
+	
+	btn.MouseButton1Click:Connect(function()
+		selectedColor = col
+		preview.BackgroundColor3 = col
+		SoundManager.Play("ShopButton")
+	end)
+end
+
+-- FUNCIÓN HELPER PARA BOTONES ESTILIZADOS DEL SELECTOR
+local function createSelectorButton(parent, text, color1, color2, pos, size)
+	local btn = Instance.new("TextButton", parent)
+	btn.Size = size; btn.Position = pos; btn.AnchorPoint = Vector2.new(0.5, 1)
+	btn.BackgroundColor3 = Color3.new(1,1,1); btn.Text = ""
+	btn.ZIndex = 27
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+	applyGradient(btn, color1, color2, 90)
+	createDeepStroke(btn, Color3.new(1,1,1), Color3.new(0.5,0.5,0.5), 2).Color = Color3.new(0,0,0)
+	
+	local lbl = Instance.new("TextLabel", btn)
+	lbl.Size = UDim2.new(1,0,1,0); lbl.BackgroundTransparency = 1
+	lbl.Text = text; lbl.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
+	lbl.TextSize = 20; lbl.TextColor3 = Color3.new(1,1,1); lbl.ZIndex = 28
+	local str = Instance.new("UIStroke", lbl); str.Thickness = 2; str.Color = Color3.new(0,0,0)
+	return btn
+end
+
+-- BOTÓN CONFIRMAR
+local confirmColor = createSelectorButton(
+	rgbFrame, getTxt("BTN_CONFIRM"), 
+	Color3.fromRGB(0, 200, 100), Color3.fromRGB(0, 150, 50),
+	UDim2.new(0.5, 0, 0.96, 0), UDim2.new(0, 160, 0, 50)
+)
+
+confirmColor.MouseButton1Click:Connect(function()
+	if currentItemToColor and colorEvent then
+		SoundManager.Play("AbilityReady") 
+		-- ENVÍO AL SERVIDOR
+		colorEvent:FireServer(currentItemToColor, selectedColor.R, selectedColor.G, selectedColor.B)
+	end
+	rgbFrame.Visible = false
+end)
+
+-- BOTÓN CERRAR (X)
+local closeColor = Instance.new("TextButton", rgbFrame)
+closeColor.Size = UDim2.new(0, 35, 0, 35); closeColor.Position = UDim2.new(1, -10, 0, 10); closeColor.AnchorPoint = Vector2.new(1, 0)
+closeColor.BackgroundColor3 = Color3.fromRGB(200, 50, 50); closeColor.Text = "X"
+closeColor.FontFace = Font.fromEnum(Enum.Font.GothamBlack); closeColor.TextColor3 = Color3.new(1,1,1)
+closeColor.TextSize = 20; closeColor.ZIndex = 27
+Instance.new("UICorner", closeColor)
+
+closeColor.MouseButton1Click:Connect(function()
+	SoundManager.Play("ShopButton")
+	rgbFrame.Visible = false
+end)
+
+local function openColorSelector(itemKey)
+	currentItemToColor = (itemKey == "DoubleJumpColor" and "DoubleJump") or (itemKey == "DashColor" and "Dash")
+	rgbFrame.Visible = true
+	screenGui.DisplayOrder = 25 
+end
+
+-------------------------------------------------------------------
+-- 4. RENDERIZADO DE FILAS
 -------------------------------------------------------------------
 local function createStyledButton(parent, text, color1, color2)
 	local btn = Instance.new("TextButton", parent)
 	btn.Size = UDim2.new(0, 120, 0, 45)
 	btn.BackgroundColor3 = Color3.new(1,1,1)
-	btn.Text = "" -- Ocultamos el texto nativo
+	btn.Text = "" 
 	btn.AutoButtonColor = true 
 	btn.ZIndex = 12
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
@@ -240,7 +377,7 @@ local function createStyledButton(parent, text, color1, color2)
 	label.BackgroundTransparency = 1
 	label.Text = text
 	label.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
-	label.TextSize = 22 -- MÁS GRANDE
+	label.TextSize = 22 
 	label.TextColor3 = Color3.new(1,1,1)
 	label.ZIndex = 13
 	
@@ -296,24 +433,35 @@ local function renderAbilityRow(config, playerData)
 	nameLab.ZIndex = 12
 	
 	if isOwned then
-		local acquired = Instance.new("TextLabel", card)
-		acquired.Text = getTxt("LBL_ACQUIRED")
-		acquired.Size = UDim2.new(0, 150, 0, 30)
-		acquired.Position = UDim2.new(1, -15, 0.5, 0); acquired.AnchorPoint = Vector2.new(1, 0.5)
-		acquired.BackgroundTransparency = 1
-		acquired.TextColor3 = Color3.fromRGB(100, 255, 100)
-		acquired.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
-		acquired.TextSize = 20
-		acquired.ZIndex = 12
-		
-		if config.ColorKey then
-			local colBtn = createStyledButton(card, getTxt("BTN_COLOR"), Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 100, 200))
-			colBtn.Size = UDim2.new(0, 100, 0, 35)
-			colBtn.Position = UDim2.new(0, 95, 0.85, 0); colBtn.AnchorPoint = Vector2.new(0, 1)
+		-- Si es una habilidad con color (Salto Doble o Dash)
+		if config.Key == "DoubleJump" or config.Key == "DashUnlock" then
+			local colBtn = createStyledButton(
+				card, 
+				getTxt("BTN_COLOR"), 
+				Color3.fromRGB(0, 150, 255), 
+				Color3.fromRGB(0, 100, 200)
+			)
+			colBtn.Size = UDim2.new(0, 120, 0, 45)
+			colBtn.Position = UDim2.new(1, -15, 0.5, 0); colBtn.AnchorPoint = Vector2.new(1, 0.5)
 			
 			colBtn.MouseButton1Click:Connect(function()
 				SoundManager.Play("ShopButton")
+				-- ABRIR EL SELECTOR DE COLOR
+				if config.ColorKey then
+					openColorSelector(config.ColorKey)
+				end
 			end)
+		else
+			-- Etiqueta ADQUIRIDO normal
+			local acquired = Instance.new("TextLabel", card)
+			acquired.Text = getTxt("LBL_ACQUIRED")
+			acquired.Size = UDim2.new(0, 150, 0, 30)
+			acquired.Position = UDim2.new(1, -15, 0.5, 0); acquired.AnchorPoint = Vector2.new(1, 0.5)
+			acquired.BackgroundTransparency = 1
+			acquired.TextColor3 = Color3.fromRGB(100, 255, 100)
+			acquired.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
+			acquired.TextSize = 20
+			acquired.ZIndex = 12
 		end
 	else
 		local price = ShopConfig.Prices[config.Key]
@@ -329,7 +477,7 @@ local function renderAbilityRow(config, playerData)
 			local s = shopFunction:InvokeServer("BuyUpgrade", config.Key)
 			if s then 
 				SoundManager.Play("UnlockSkill") 
-				refreshAllTabs() -- Refrescar sin cerrar
+				refreshAllTabs() 
 			else 
 				SoundManager.Play("InsufficientFunds") 
 			end
@@ -495,6 +643,8 @@ local function toggleMenu()
 		end)
 	else
 		mainBlocker.BackgroundTransparency = 1
+		rgbFrame.Visible = false -- Cerrar selector si se cierra tienda
+		screenGui.DisplayOrder = 20
 	end
 end
 
@@ -515,6 +665,7 @@ local function checkGameState()
 		isOpen = false
 		menuFrame.Visible = false
 		mainBlocker.Visible = false
+		rgbFrame.Visible = false
 	end
 end
 estadoValue.Changed:Connect(checkGameState)

@@ -7,11 +7,11 @@ local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 local ShopConfig = require(sharedFolder:WaitForChild("ShopConfig"))
 
 -- CONFIGURACIÓN
-local DATA_VERSION = "BETA1.2" -- Si cambiaste versión, asegúrate de mantener la misma
+local DATA_VERSION = "BETA1.6" -- Si cambiaste versión, asegúrate de mantener la misma
 local MyDataStore = DataStoreService:GetDataStore("PlayerData_" .. DATA_VERSION)
 
 local DefaultData = {
-	Coins = 999999,
+	Coins = 70000,
 	Wins = 0,
 	Upgrades = {
 		JumpHeight = 1,

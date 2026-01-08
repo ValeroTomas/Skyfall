@@ -39,7 +39,7 @@ local languages = {
 
 		-- TIENDA (SHOP)
 		["SHOP_TITLE"] = "TIENDA DE MEJORAS",
-		["COLOR_SELECTOR"] = "SELECTOR DE COLOR",
+		["COLOR_SELECTOR"] = "SELECCIONA COLOR",
 		["BTN_CONFIRM"] = "CONFIRMAR",
 		
 		["BTN_BUY"] = "COMPRAR",

@@ -5,6 +5,7 @@ local VipList = {}
 VipList.Users = {
 	[4866854573] = true, -- Puedes añadir más filas así
 	[10170907800] = true,
+	[10285292624] = true,
 }
 
 -- Función para verificar si es VIP

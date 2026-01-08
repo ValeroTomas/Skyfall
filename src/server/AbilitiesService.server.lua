@@ -3,7 +3,7 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 
--- 1. REFERENCIAS A EVENTOS
+-- EVENTOS
 local dashEvent = ReplicatedStorage:WaitForChild("DashEvent")
 local pushEvent = ReplicatedStorage:WaitForChild("PushEvent")
 local bonkEvent = ReplicatedStorage:WaitForChild("BonkEvent")
@@ -18,8 +18,7 @@ if not cooldownEvent then
 end
 
 local sharedFolder = ReplicatedStorage:WaitForChild("shared")
-
--- MANAGERS (Delegación correcta de responsabilidades)
+-- MANAGERS
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 local DecalManager = require(sharedFolder:WaitForChild("DecalManager")) 
 
@@ -35,18 +34,42 @@ local BAT_GRIP_OFFSET = CFrame.new(0, -0.2, -1.7) * CFrame.Angles(math.rad(-93),
 
 local cooldowns = {}
 
--- HELPERS
+-- Sound Folder creation
+local SoundFolder = ReplicatedStorage:FindFirstChild("AbilitySounds") or Instance.new("Folder", ReplicatedStorage)
+SoundFolder.Name = "AbilitySounds"
+
+-- HELPERS BÁSICOS
 local function canUseAbility()
 	local rawState = estadoValue.Value
 	local state = string.split(rawState, "|")[1]
 	return state == "SURVIVE"
 end
 
+-------------------------------------------------------------------
+-- [NUEVO] SISTEMA DE STUN POR TIMESTAMP
+-------------------------------------------------------------------
+-- Aplica stun solo si el nuevo tiempo es mayor al actual
+local function applyStun(player, duration)
+	if not player then return end
+	local now = workspace:GetServerTimeNow() -- Tiempo ultra-preciso sincronizado
+	local currentEnd = player:GetAttribute("StunnedUntil") or 0
+	
+	if (now + duration) > currentEnd then
+		player:SetAttribute("StunnedUntil", now + duration)
+	end
+end
+
+-- Verifica si el tiempo actual es menor al tiempo de fin del stun
+local function isStunned(player)
+	local untilTime = player:GetAttribute("StunnedUntil") or 0
+	return workspace:GetServerTimeNow() < untilTime
+end
+
 local function isOnCooldown(player, abilityName, duration)
 	if not canUseAbility() then return true end
 	
-	-- VALIDACIÓN STUN: Si tiene el atributo, no puede usar skills
-	if player:GetAttribute("IsStunned") == true then return true end
+	-- VALIDACIÓN ROBUSTA CON TIMESTAMP
+	if isStunned(player) then return true end
 	
 	if not cooldowns[player] then cooldowns[player] = {} end
 	local nextUse = cooldowns[player][abilityName] or 0
@@ -65,6 +88,7 @@ Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function()
 		cooldowns[player] = {} 
 		cooldownEvent:FireClient(player, "RESET_ALL", 0)
+		player:SetAttribute("StunnedUntil", 0) -- Reset al nacer
 	end)
 end)
 
@@ -91,42 +115,41 @@ local function animateArms(character)
 	end
 end
 
+-- EFECTOS VISUALES (Humo sale de la cabeza)
 local function createStunEffect(character, duration)
 	local head = character:FindFirstChild("Head")
 	if not head then return end
 	
-	-- Carga desde DecalManager
 	local ID_STAR = DecalManager.Get("BonkStun")
-	local ID_SMOKE = DecalManager.Get("BonkHit") 
+	local ID_SMOKE = "rbxassetid://243662261" 
 
+	-- Estrellas (Duran lo que el stun)
 	local stars = Instance.new("ParticleEmitter")
 	stars.Texture = ID_STAR
-	stars.Size = NumberSequence.new(0.5, 0)
+	stars.Size = NumberSequence.new(0.8, 0)
 	stars.Rate = 5
-	stars.Speed = NumberRange.new(0)
-	stars.SpreadAngle = Vector2.new(360, 360)
-	stars.Rotation = NumberRange.new(0, 360)
-	stars.RotSpeed = NumberRange.new(100, 200)
-	stars.Lifetime = NumberRange.new(1)
+	stars.Lifetime = NumberRange.new(duration) 
 	stars.Parent = head
 	
 	SoundManager.Play("BatHit", head)
 	
+	-- Humo (Explosión instantánea desde la cabeza)
 	local smoke = Instance.new("ParticleEmitter")
+	smoke.Name = "HitSmoke"
 	smoke.Texture = ID_SMOKE
-	smoke.Size = NumberSequence.new(2, 4)
-	smoke.Rate = 50 
-	smoke.Lifetime = NumberRange.new(0.5)
-	smoke.Speed = NumberRange.new(5)
+	smoke.Size = NumberSequence.new(2, 5)
+	smoke.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1)})
+	smoke.Lifetime = NumberRange.new(0.4, 0.6)
+	smoke.Rate = 0; smoke.Enabled = false 
 	smoke.Parent = head
-	task.delay(0.2, function() smoke.Enabled = false end)
+	smoke:Emit(30) -- ¡PUM!
 	
 	Debris:AddItem(stars, duration) 
-	Debris:AddItem(smoke, 2)
+	Debris:AddItem(smoke, 1.5) 
 end
 
 -------------------------------------------------------------------
--- LÓGICA DEL DASH
+-- DASH & PUSH
 -------------------------------------------------------------------
 dashEvent.OnServerEvent:Connect(function(player)
 	local cd = player:GetAttribute("DashCooldown") or 8
@@ -137,32 +160,10 @@ dashEvent.OnServerEvent:Connect(function(player)
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not hrp or char.Humanoid.Health <= 0 then return end
 
-	-- Usamos SoundManager (Asegúrate que "Dash" exista en tu SoundManager, o usa la key correcta)
 	SoundManager.Play("Dash", hrp)
-
-	local wind = Instance.new("ParticleEmitter")
-	wind.Acceleration = hrp.CFrame.LookVector * -50
-	wind.Lifetime = NumberRange.new(0.1, 0.3)
-	wind.Rate = 100
-	wind.Speed = NumberRange.new(20, 40)
-	wind.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(1,1)})
-	wind.Parent = hrp
 	
-	local a0, a1 = Instance.new("Attachment", hrp), Instance.new("Attachment", hrp)
-	a0.Position, a1.Position = Vector3.new(0,1,0), Vector3.new(0,-1,0)
-	local trail = Instance.new("Trail")
-	trail.Attachment0, trail.Attachment1 = a0, a1
-	
-	local dashColor = player:GetAttribute("DashColor")
-	if typeof(dashColor) == "Color3" then
-		trail.Color = ColorSequence.new(dashColor)
-	else
-		trail.Color = ColorSequence.new(Color3.fromRGB(0, 170, 255))
-	end
-
-	trail.Transparency = NumberSequence.new(0.2, 1)
-	trail.Lifetime = 0.4
-	trail.Parent = hrp
+	local wind = Instance.new("ParticleEmitter"); wind.Parent = hrp; wind.Enabled = false
+	Debris:AddItem(wind, 1) -- Dummy para el layout
 
 	local att = Instance.new("Attachment", hrp)
 	local lv = Instance.new("LinearVelocity", att)
@@ -170,14 +171,9 @@ dashEvent.OnServerEvent:Connect(function(player)
 	lv.VectorVelocity = hrp.CFrame.LookVector * force
 
 	task.wait(0.2)
-	lv:Destroy(); att:Destroy(); wind.Enabled = false
-	Debris:AddItem(trail, 0.5); Debris:AddItem(wind, 0.5)
-	Debris:AddItem(a0, 0.5); Debris:AddItem(a1, 0.5)
+	lv:Destroy(); att:Destroy()
 end)
 
--------------------------------------------------------------------
--- LÓGICA DEL PUSH
--------------------------------------------------------------------
 pushEvent.OnServerEvent:Connect(function(player)
 	local cd = player:GetAttribute("PushCooldown") or 10
 	if isOnCooldown(player, "Push", cd) then return end
@@ -203,9 +199,8 @@ pushEvent.OnServerEvent:Connect(function(player)
 	for _, part in ipairs(partsInBox) do
 		local enemyChar = part.Parent
 		local enemyRoot = enemyChar and enemyChar:FindFirstChild("HumanoidRootPart")
-		local enemyHum = enemyChar and enemyChar:FindFirstChild("Humanoid")
 		
-		if enemyRoot and enemyHum and enemyHum.Health > 0 and not hitCharacters[enemyChar] then
+		if enemyRoot and not hitCharacters[enemyChar] then
 			hitCharacters[enemyChar] = true 
 			local tag = enemyChar:FindFirstChild("LastAttacker") or Instance.new("ObjectValue", enemyChar)
 			tag.Name = "LastAttacker"; tag.Value = player
@@ -218,8 +213,7 @@ pushEvent.OnServerEvent:Connect(function(player)
 			local pushDir = (enemyRoot.Position - root.Position).Unit 
 			pushDir = Vector3.new(pushDir.X, 0.3, pushDir.Z).Unit 
 			vel.VectorVelocity = pushDir * pushPower
-			Debris:AddItem(att, 0.25) 
-			Debris:AddItem(vel, 0.25)
+			Debris:AddItem(att, 0.25); Debris:AddItem(vel, 0.25)
 		end
 	end
 end)
@@ -240,14 +234,13 @@ bonkEvent.OnServerEvent:Connect(function(player)
 	
 	if not root or not hum or hum.Health <= 0 or not rightHand then return end
 	
-	-- AUTO-LOCK DEL ATACANTE (Sin Anchor)
-	-- Aplicamos el atributo para que el cliente bloquee inputs
-	player:SetAttribute("IsStunned", true)
-	hum.WalkSpeed = 0
-	hum.JumpPower = 0
+	-- [1] AUTO-LOCK ATACANTE (Timestamp)
+	applyStun(player, SELF_LOCK_TIME)
+	hum.WalkSpeed = 0; hum.JumpPower = 0
 	
 	-- SPAWN BATE
 	local bat = batTemplate:Clone()
+	bat.Name = "Bat" -- Nombre clave para la interrupción
 	bat.CanCollide = false; bat.Massless = true
 	local batColor = player:GetAttribute("BonkColor")
 	
@@ -268,18 +261,18 @@ bonkEvent.OnServerEvent:Connect(function(player)
 	local swingTrack = animator:LoadAnimation(swingAnim)
 	swingTrack.Priority = Enum.AnimationPriority.Action; swingTrack:Play()
 	
-	-- LIBERAR ATACANTE
+	-- TIMER PARA RESTAURAR VELOCIDAD (Si ya no está stuneado por otra causa)
 	task.delay(SELF_LOCK_TIME, function()
-		if player and hum then
-			player:SetAttribute("IsStunned", nil)
-			hum.WalkSpeed = 16 
-			hum.JumpPower = 50
+		if player and hum and not isStunned(player) then
+			hum.WalkSpeed = 16; hum.JumpPower = 50
 		end
 	end)
 	
-	-- HITBOX
+	-- HITBOX (Windup delay)
 	task.delay(0.3, function() 
-		if not char or not bat then return end
+		-- Interrupción: Si me stunearon en este lapso, el bate habrá sido destruido.
+		if not char or not bat or not bat.Parent then return end
+		
 		local hitSize = Vector3.new(6, 6, 8)
 		local hitCFrame = root.CFrame * CFrame.new(0, 0, -4) 
 		local params = OverlapParams.new()
@@ -302,9 +295,14 @@ bonkEvent.OnServerEvent:Connect(function(player)
 				tag.Name = "LastAttacker"; tag.Value = player
 				Debris:AddItem(tag, 10)
 				
-				-- STUN VÍCTIMA (Atributo + Speed 0)
-				if enemyPlayer then enemyPlayer:SetAttribute("IsStunned", true) end
-				enemyChar:SetAttribute("IsStunned", true)
+				-- [2] STUN VÍCTIMA (Timestamp)
+				if enemyPlayer then applyStun(enemyPlayer, stunTime) end
+				-- Backup para NPCs o scripts que lean el char
+				enemyChar:SetAttribute("StunnedUntil", workspace:GetServerTimeNow() + stunTime) 
+				
+				-- DESARMAR AL ENEMIGO (Interrumpe su ataque si estaba cargando uno)
+				local enemyBat = enemyChar:FindFirstChild("Bat")
+				if enemyBat then enemyBat:Destroy() end
 				
 				enemyHum.WalkSpeed = 0
 				enemyHum.JumpPower = 0
@@ -314,23 +312,28 @@ bonkEvent.OnServerEvent:Connect(function(player)
 				stunTrack.Looped = true
 				stunTrack.Priority = Enum.AnimationPriority.Action4; stunTrack:Play()
 				
-				-- KNOCKBACK
 				local att = Instance.new("Attachment", enemyRoot)
 				local lv = Instance.new("LinearVelocity", att)
 				lv.MaxForce = 500000
 				lv.VectorVelocity = (enemyRoot.Position - root.Position).Unit * 20 + Vector3.new(0, 10, 0)
 				lv.Attachment0 = att
 				Debris:AddItem(lv, 0.2); Debris:AddItem(att, 0.2)
-				
+
 				-- RESTAURAR VÍCTIMA
 				task.delay(stunTime, function()
 					if enemyChar and enemyHum and enemyHum.Health > 0 then
-						if enemyPlayer then enemyPlayer:SetAttribute("IsStunned", nil) end
-						enemyChar:SetAttribute("IsStunned", nil)
+						-- Solo restauramos movimiento si el tiempo de stun ACTUAL ya pasó.
+						-- Esto maneja perfectamente si recibió OTRO stun más largo mientras tanto.
+						local pTime = enemyPlayer and (enemyPlayer:GetAttribute("StunnedUntil") or 0) or 0
+						local cTime = enemyChar:GetAttribute("StunnedUntil") or 0
+						local now = workspace:GetServerTimeNow()
 						
-						enemyHum.WalkSpeed = 16 
-						enemyHum.JumpPower = 50
-						stunTrack:Stop()
+						-- Si "ahora" es mayor que el tiempo de stun del player Y del character
+						if now >= pTime and now >= cTime then
+							enemyHum.WalkSpeed = 16 
+							enemyHum.JumpPower = 50
+							stunTrack:Stop()
+						end
 					end
 				end)
 			end

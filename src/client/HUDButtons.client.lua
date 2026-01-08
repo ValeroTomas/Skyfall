@@ -59,19 +59,16 @@ layout.SortOrder = Enum.SortOrder.LayoutOrder
 -- 3. UTILS VISUALES (PALETA DE COLORES)
 -------------------------------------------------------------------
 local COLORS = {
-	-- TIENDA
 	SHOP_BG_1 = Color3.fromRGB(255, 220, 0),
 	SHOP_BG_2 = Color3.fromRGB(255, 140, 0),
 	SHOP_STR_1 = Color3.fromRGB(0, 255, 255),
 	SHOP_STR_2 = Color3.fromRGB(0, 100, 255),
 
-	-- HABILIDAD LISTA
 	READY_BG_1 = Color3.fromRGB(135, 206, 250),
 	READY_BG_2 = Color3.fromRGB(0, 150, 255),
 	READY_STR_1 = Color3.fromRGB(0, 255, 100),
 	READY_STR_2 = Color3.fromRGB(0, 150, 50),
 
-	-- HABILIDAD COOLDOWN
 	CD_BG_1 = Color3.fromRGB(60, 60, 70),
 	CD_BG_2 = Color3.fromRGB(20, 20, 25),
 	CD_STR_1 = Color3.fromRGB(255, 50, 50),
@@ -321,8 +318,10 @@ task.spawn(updateLoadout)
 -- 6. INPUT HANDLER
 -------------------------------------------------------------------
 local function triggerAbility(abilityName, slotObj)
-	-- [CHECK DE STUN] Si estás stuneado, no puedes usar nada
-	if player:GetAttribute("IsStunned") == true then return end
+	-- [ACTUALIZADO] VERIFICACIÓN POR TIMESTAMP
+	-- Si la hora del servidor es menor al tiempo de stun, no hacemos nada.
+	local untilTime = player:GetAttribute("StunnedUntil") or 0
+	if workspace:GetServerTimeNow() < untilTime then return end
 	
 	if slotObj.InCooldown then
 		slotObj:FlashError()

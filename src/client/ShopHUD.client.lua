@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local MarketplaceService = game:GetService("MarketplaceService")
+local MarketplaceService = game:GetService("MarketplaceService") 
 local LocalizationService = game:GetService("LocalizationService") 
 
 local player = Players.LocalPlayer
@@ -15,10 +15,16 @@ local Localization = require(sharedFolder:WaitForChild("Localization"))
 local FontManager = require(sharedFolder:WaitForChild("FontManager"))
 local DecalManager = require(sharedFolder:WaitForChild("DecalManager")) 
 
+-- IMPORTAMOS LA LISTA VIP
+local VipList = require(sharedFolder:WaitForChild("VipList"))
+
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
 local shopFunction = ReplicatedStorage:WaitForChild("ShopFunction")
 local colorEvent = ReplicatedStorage:WaitForChild("ColorUpdateEvent", 5)
 local toggleShopEvent = ReplicatedStorage:WaitForChild("ToggleShopEvent")
+
+-- ID DEL GAME PASS "CUSTOM COLORS!"
+local GAME_PASS_ID = 1663859003 
 
 local playerLang = LocalizationService.RobloxLocaleId:sub(1, 2)
 local function getTxt(key, ...)
@@ -105,7 +111,7 @@ menuFrame.Size = UDim2.new(0, 750, 0, 550)
 menuFrame.Position = UDim2.new(0.5, 0, 0.5, 0); menuFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 menuFrame.BackgroundColor3 = Color3.new(1,1,1)
 menuFrame.Visible = false; menuFrame.ZIndex = 5 
-menuFrame.Active = true -- <--- CORRECCIÓN: EVITA QUE EL CLICK PASE AL BLOCKER
+menuFrame.Active = true 
 Instance.new("UICorner", menuFrame).CornerRadius = UDim.new(0, 16)
 
 applyGradient(menuFrame, Color3.fromRGB(40, 45, 60), Color3.fromRGB(20, 22, 30), 45)
@@ -221,16 +227,16 @@ for name, data in pairs(tabButtons) do
 end
 
 -------------------------------------------------------------------
--- 3. SELECTOR DE COLOR (GRID SYSTEM 30 COLORES - AJUSTADO)
+-- 3. SELECTOR DE COLOR
 -------------------------------------------------------------------
 -- MARCO SELECTOR
 local rgbFrame = Instance.new("Frame", screenGui)
 rgbFrame.Name = "RGBSelector"
-rgbFrame.Size = UDim2.new(0, 450, 0, 550) -- AJUSTADO (Antes 350x480)
+rgbFrame.Size = UDim2.new(0, 450, 0, 550) 
 rgbFrame.Position = UDim2.new(0.5, 0, 0.5, 0); rgbFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 rgbFrame.BackgroundColor3 = Color3.fromRGB(30, 32, 45)
 rgbFrame.Visible = false; rgbFrame.ZIndex = 25 
-rgbFrame.Active = true -- <--- CORRECCIÓN: EVITA CIERRE AL CLICKEAR SELECTOR
+rgbFrame.Active = true 
 Instance.new("UICorner", rgbFrame)
 applyGradient(rgbFrame, Color3.fromRGB(40, 45, 60), Color3.fromRGB(20, 22, 30), 45)
 createDeepStroke(rgbFrame, Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 50, 150), 4)
@@ -444,11 +450,30 @@ local function renderAbilityRow(config, playerData)
 			colBtn.Size = UDim2.new(0, 120, 0, 45)
 			colBtn.Position = UDim2.new(1, -15, 0.5, 0); colBtn.AnchorPoint = Vector2.new(1, 0.5)
 			
+			-- [MODIFICACIÓN VIP]: USANDO MÓDULO VIPLIST
 			colBtn.MouseButton1Click:Connect(function()
 				SoundManager.Play("ShopButton")
-				-- ABRIR EL SELECTOR DE COLOR
-				if config.ColorKey then
-					openColorSelector(config.ColorKey)
+				
+				local hasPass = false
+				
+				-- 1. CHEQUEO VIP (GRATIS)
+				if VipList.IsVip(player.UserId) then
+					hasPass = true
+				else
+					-- 2. CHEQUEO NORMAL (PAGO)
+					pcall(function()
+						hasPass = MarketplaceService:UserOwnsGamePassAsync(player.UserId, GAME_PASS_ID)
+					end)
+				end
+
+				if hasPass then
+					-- TIENE PASE/ES VIP: Abrir Selector
+					if config.ColorKey then
+						openColorSelector(config.ColorKey)
+					end
+				else
+					-- NO TIENE PASE: Sugerir Compra
+					MarketplaceService:PromptGamePassPurchase(player, GAME_PASS_ID)
 				end
 			end)
 		else
@@ -567,6 +592,60 @@ local function renderUpgradeRow(key, playerData)
 	return row
 end
 
+-- [NUEVO] RENDERIZADO DE FILA DE MONEDAS
+local function renderCoinRow(pkg)
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 90)
+	card.BackgroundColor3 = Color3.new(1,1,1)
+	card.ZIndex = 11
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+	applyGradient(card, Color3.fromRGB(60, 50, 80), Color3.fromRGB(40, 30, 60), 45) -- Morado/Oro oscuro
+	createDeepStroke(card, Color3.fromRGB(150, 100, 200), Color3.fromRGB(80, 40, 120), 2)
+	
+	-- ICONO
+	local iconBg = Instance.new("Frame", card)
+	iconBg.Size = UDim2.new(0, 70, 0, 70)
+	iconBg.Position = UDim2.new(0, 10, 0.5, 0); iconBg.AnchorPoint = Vector2.new(0, 0.5)
+	iconBg.BackgroundColor3 = Color3.new(0,0,0); iconBg.BackgroundTransparency = 0.5
+	iconBg.ZIndex = 12
+	Instance.new("UICorner", iconBg).CornerRadius = UDim.new(0, 8)
+	
+	local icon = Instance.new("ImageLabel", iconBg)
+	icon.Size = UDim2.new(0.8, 0, 0.8, 0)
+	icon.Position = UDim2.new(0.5,0,0.5,0); icon.AnchorPoint = Vector2.new(0.5,0.5)
+	icon.BackgroundTransparency = 1; 
+	icon.Image = DecalManager.Get(pkg.IconKey) -- Usamos DecalManager con la clave nueva
+	icon.ZIndex = 13
+	
+	-- TEXTO
+	local nameLab = Instance.new("TextLabel", card)
+	nameLab.Text = string.format("%d COINS", pkg.Amount)
+	nameLab.Size = UDim2.new(0.5, 0, 0.4, 0)
+	nameLab.Position = UDim2.new(0, 95, 0, 10)
+	nameLab.BackgroundTransparency = 1
+	nameLab.TextColor3 = Color3.fromRGB(255, 220, 0) -- Dorado
+	nameLab.FontFace = FontManager.Get("Cartoon")
+	nameLab.TextSize = 28
+	nameLab.TextXAlignment = Enum.TextXAlignment.Left
+	nameLab.ZIndex = 12
+	
+	-- BOTÓN DE COMPRA (ROBUX)
+	local buyBtn = createStyledButton(
+		card, 
+		pkg.PriceText, 
+		Color3.fromRGB(0, 200, 100), 
+		Color3.fromRGB(0, 150, 50)
+	)
+	buyBtn.Position = UDim2.new(1, -15, 0.5, 0); buyBtn.AnchorPoint = Vector2.new(1, 0.5)
+	
+	buyBtn.MouseButton1Click:Connect(function()
+		SoundManager.Play("ShopButton")
+		MarketplaceService:PromptProductPurchase(player, pkg.ProductId)
+	end)
+	
+	return card
+end
+
 -------------------------------------------------------------------
 -- 4. REFRESCAR TIENDA
 -------------------------------------------------------------------
@@ -574,6 +653,7 @@ refreshAllTabs = function()
 	local success, data = pcall(function() return shopFunction:InvokeServer("GetData") end)
 	if not success or not data then return end
 	
+	-- PESTAÑA HABILIDADES
 	local abScroll = contentFrames["Abilities"]
 	for _, c in pairs(abScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
 	for _, abilityConfig in ipairs(ABILITY_LIST) do
@@ -581,6 +661,7 @@ refreshAllTabs = function()
 		card.Parent = abScroll
 	end
 	
+	-- PESTAÑA MEJORAS
 	local upScroll = contentFrames["Upgrades"]
 	for _, c in pairs(upScroll:GetChildren()) do if c:IsA("Frame") or c:IsA("TextLabel") then c:Destroy() end end
 	for _, group in ipairs(UPGRADE_GROUPS) do
@@ -604,15 +685,13 @@ refreshAllTabs = function()
 		end
 	end
 	
+	-- [MODIFICADO] PESTAÑA MONEDAS
 	local coinScroll = contentFrames["Coins"]
-	if #coinScroll:GetChildren() == 1 then
-		local info = Instance.new("TextLabel", coinScroll)
-		info.Text = "PRÓXIMAMENTE"
-		info.Size = UDim2.new(1, 0, 1, 0)
-		info.BackgroundTransparency = 1
-		info.TextColor3 = Color3.fromRGB(100, 100, 100)
-		info.FontFace = FontManager.Get("Cartoon")
-		info.TextSize = 40
+	for _, c in pairs(coinScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+	
+	for _, pkg in ipairs(ShopConfig.CoinProducts) do
+		local card = renderCoinRow(pkg)
+		card.Parent = coinScroll
 	end
 end
 

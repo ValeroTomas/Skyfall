@@ -41,7 +41,7 @@ function HUD_Coins.Init(screenGui, sharedFolder)
 	cIcon.BackgroundTransparency = 1; cIcon.Image = COIN_ICON_ID
 	cIcon.LayoutOrder = 1
 	
-	-- CORRECCIÓN DEL OUTLINE (Borde Ajustado)
+	-- Outline (Borde Ajustado)
 	local outlineFrame = Instance.new("Frame", cIcon)
 	outlineFrame.Name = "OutlineFix"
 	outlineFrame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -83,10 +83,11 @@ function HUD_Coins.Init(screenGui, sharedFolder)
 	plusPad.PaddingTop = UDim.new(0, 7) 
 	Utils.ApplyCartoonStyle(cPlus, Color3.fromRGB(150, 255, 150), Color3.fromRGB(0, 200, 0), Color3.new(0,0,0))
 
-	-- LÓGICA
+	-- LÓGICA DE ANIMACIÓN
 	local currentDisplayValue = 0
 
 	local function animateCoinsStep(finalValue, amountAdded)
+		-- 1. Mostrar texto "+XXXX" flotante
 		if amountAdded > 0 then
 			cPlus.Text = "+" .. amountAdded
 			cPlus.Visible = true; cPlus.TextTransparency = 0
@@ -100,32 +101,48 @@ function HUD_Coins.Init(screenGui, sharedFolder)
 			end)
 		end
 		
-		local step = 10
-		if amountAdded < 10 and amountAdded > 0 then step = amountAdded end
+		-- [MODIFICACIÓN] LÓGICA DE PASOS (STEP)
+		local step = 10 -- Valor por defecto para premios pequeños
+		
+		if amountAdded >= 500 then
+			-- Si la cantidad es grande (ej. Paquetes de Monedas), sumamos de 500 en 500
+			-- Esto evita el "spam" de sonido infinito
+			step = 500
+		elseif amountAdded < 10 and amountAdded > 0 then
+			step = amountAdded
+		end
 		
 		task.spawn(function()
+			-- Cambiar color a verde mientras sube
 			if amountAdded > 0 then
 				Utils.ApplyCartoonStyle(cText, Color3.fromRGB(150, 255, 150), Color3.fromRGB(0, 200, 0), Color3.new(0,0,0))
 			end
 			
+			-- Bucle de animación
 			while currentDisplayValue < finalValue do
 				local diff = finalValue - currentDisplayValue
-				local add = math.min(step, diff)
+				local add = math.min(step, diff) -- Asegura no pasarse del total
+				
 				currentDisplayValue = currentDisplayValue + add
 				cText.Text = tostring(currentDisplayValue)
 				SoundManager.Play("CoinPop") 
 				
+				-- Pequeño efecto de rebote en cada "tick"
 				local popUp = TweenService:Create(cText, TweenInfo.new(0.05), {TextSize = 34})
 				popUp:Play(); popUp.Completed:Wait()
+				
 				local popDown = TweenService:Create(cText, TweenInfo.new(0.05), {TextSize = 28})
 				popDown:Play(); task.wait(0.05)
 			end
+			
+			-- Asegurar valor final y restaurar color dorado
 			currentDisplayValue = finalValue
 			cText.Text = tostring(currentDisplayValue)
 			applyGoldStyle()
 		end)
 	end
 
+	-- Conexión inicial para leer Leaderstats
 	task.spawn(function()
 		local leaderstats = player:WaitForChild("leaderstats", 10)
 		if leaderstats then
@@ -134,6 +151,7 @@ function HUD_Coins.Init(screenGui, sharedFolder)
 				currentDisplayValue = coinsVal.Value
 				cText.Text = tostring(currentDisplayValue)
 				coinsVal.Changed:Connect(function(newVal)
+					-- Si el valor baja (gastaste), actualizamos sin animación
 					if newVal < currentDisplayValue then
 						currentDisplayValue = newVal
 						cText.Text = tostring(currentDisplayValue)
@@ -143,6 +161,7 @@ function HUD_Coins.Init(screenGui, sharedFolder)
 		end
 	end)
 
+	-- Evento de Recompensa
 	rewardEvent.OnClientEvent:Connect(function(amount)
 		local targetValue = currentDisplayValue + amount
 		animateCoinsStep(targetValue, amount)

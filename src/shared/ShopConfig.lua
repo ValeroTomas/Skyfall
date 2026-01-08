@@ -35,7 +35,6 @@ ShopConfig.Stats = {
 	JumpHeight = {54, 56, 58, 60, 63}, 
 	
 	-- COSTE DE STAMINA (MULTIPLICADORES)
-	-- Nivel 1 = 100% del coste, Nivel 5 = 50% del coste
 	JumpStaminaCost = {1.0, 0.95, 0.9, 0.85, 0.8}, 
 	
 	-- EMPUJE
@@ -61,6 +60,14 @@ ShopConfig.SpecialItems = {
 	DoubleJump = true,
 	PushUnlock = true,
 	DashUnlock = true
+}
+
+-- [NUEVO] PAQUETES DE MONEDAS (Developer Products)
+-- IMPORTANTE: Reemplaza los ProductId con los IDs reales de Roblox
+ShopConfig.CoinProducts = {
+	{ ProductId = 3506203988, Amount = 3000,  IconKey = "3000Coins",  PriceText = "R$ 149" },
+	{ ProductId = 3506204425, Amount = 6500,  IconKey = "6500Coins",  PriceText = "R$ 299" },
+	{ ProductId = 3506204678, Amount = 12000, IconKey = "12000Coins", PriceText = "R$ 499" },
 }
 
 return ShopConfig

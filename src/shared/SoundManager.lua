@@ -38,6 +38,8 @@ local SOUNDS = {
 	-- IMPACTOS
 	["BlockImpact"]       = {Id = "rbxassetid://8828710739",       Vol = 1.5, Group = "SFX", Min = 50, Max = 500},
 	["BlockBlink"]        = {Id = "rbxassetid://2124207508",       Vol = 0.5, Group = "SFX", Min = 20, Max = 200},
+	["BatSwing"]          = {Id = "rbxassetid://4571259077",       Vol = 3,   Group = "SFX"},
+	["BatHit"]            = {Id = "rbxassetid://5148302439",       Vol = 1.5, Group = "SFX"},
 
 	-- MÚSICA
 	["WaitingMusic"]      = {Id = "rbxassetid://1835782117",       Vol = 0.5, Group = "Music", Looped = true},

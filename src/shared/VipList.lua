@@ -4,6 +4,7 @@ local VipList = {}
 -- Formato: [ID_DE_ROBLOX] = true,
 VipList.Users = {
 	[4866854573] = true, -- Puedes añadir más filas así
+	[10170907800] = true,
 }
 
 -- Función para verificar si es VIP

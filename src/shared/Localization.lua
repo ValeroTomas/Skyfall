@@ -16,7 +16,7 @@ local languages = {
 		["TIE"] = "¡EMPATE!",
 		["COUNTDOWN_GO"] = "¡YA!",
 		
-		-- LOADING SCREEN (NUEVO)
+		-- LOADING SCREEN
 		["LOADING_ASSETS"] = "CARGANDO RECURSOS...",
 		["LOADING_COMPLETE"] = "¡LISTO!",
 		
@@ -60,6 +60,11 @@ local languages = {
 		["HEADER_DASH"] = "ESQUIVE",
 		["HEADER_STAMINA"] = "STAMINA",
 		
+		-- [NUEVO] BONK ESPAÑOL
+		["HEADER_BONK"] = "BATE",
+		["ITEM_STUN_TIME"] = "DURACIÓN STUN",
+		["ITEM_BONK_COLOR"] = "COLOR BATE",
+		
 		["ITEM_HEIGHT"] = "ALTURA",
 		["ITEM_COST"] = "COSTE STAMINA",
 		["ITEM_DOUBLE_JUMP"] = "SALTO DOBLE",
@@ -90,7 +95,7 @@ local languages = {
 		["TIE"] = "TIE!",
 		["COUNTDOWN_GO"] = "GO!",
 		
-		-- LOADING SCREEN (NEW)
+		-- LOADING SCREEN
 		["LOADING_ASSETS"] = "LOADING ASSETS...",
 		["LOADING_COMPLETE"] = "READY!",
 		
@@ -133,6 +138,11 @@ local languages = {
 		["HEADER_PUSH"] = "PUSH",
 		["HEADER_DASH"] = "DASH",
 		["HEADER_STAMINA"] = "STAMINA",
+		
+		-- [NUEVO] BONK ENGLISH
+		["HEADER_BONK"] = "BONK BAT",
+		["ITEM_STUN_TIME"] = "STUN DURATION",
+		["ITEM_BONK_COLOR"] = "BAT COLOR",
 		
 		["ITEM_HEIGHT"] = "HEIGHT",
 		["ITEM_COST"] = "STAMINA COST",

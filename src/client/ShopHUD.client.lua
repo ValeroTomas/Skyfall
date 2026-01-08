@@ -47,19 +47,28 @@ local STAT_TO_LOCALE = {
 	PushCooldown = "ITEM_COOLDOWN",
 	DashDistance = "ITEM_DISTANCE",
 	DashSpeed = "ITEM_SPEED",
-	DashCooldown = "ITEM_COOLDOWN"
+	DashCooldown = "ITEM_COOLDOWN",
+	
+	-- [NUEVO] BONK
+	BonkStun = "ITEM_STUN_TIME",
+	BonkCooldown = "ITEM_COOLDOWN"
 }
 
 local ABILITY_LIST = {
 	{Key = "DoubleJump", Icon = DecalManager.Get("DoubleJump"), NameKey = "ITEM_DOUBLE_JUMP", ColorKey = "DoubleJumpColor"}, 
 	{Key = "PushUnlock", Icon = DecalManager.Get("Push"), NameKey = "HEADER_PUSH"},
 	{Key = "DashUnlock", Icon = DecalManager.Get("Dash"), NameKey = "HEADER_DASH", ColorKey = "DashColor"},
+	-- [NUEVO] BONK
+	{Key = "BonkUnlock", Icon = DecalManager.Get("Bonk"), NameKey = "HEADER_BONK", ColorKey = "BonkColor"},
 }
 
 local UPGRADE_GROUPS = {
 	{ Header = "HEADER_JUMP", Dependency = nil, Items = {"JumpHeight", "JumpStaminaCost"} },
 	{ Header = "HEADER_PUSH", Dependency = "PushUnlock", Items = {"PushDistance", "PushRange", "PushCooldown"} },
 	{ Header = "HEADER_DASH", Dependency = "DashUnlock", Items = {"DashDistance", "DashSpeed", "DashCooldown"} },
+	-- [NUEVO] BONK
+	{ Header = "HEADER_BONK", Dependency = "BonkUnlock", Items = {"BonkStun", "BonkCooldown"} },
+	
 	{ Header = "HEADER_STAMINA", Dependency = nil, Items = {"MaxStamina", "StaminaRegen", "StaminaDrain"} }
 }
 
@@ -357,7 +366,12 @@ closeColor.MouseButton1Click:Connect(function()
 end)
 
 local function openColorSelector(itemKey)
-	currentItemToColor = (itemKey == "DoubleJumpColor" and "DoubleJump") or (itemKey == "DashColor" and "Dash")
+	-- [ACTUALIZADO] Asignación correcta del item para el evento
+	if itemKey == "DoubleJumpColor" then currentItemToColor = "DoubleJump"
+	elseif itemKey == "DashColor" then currentItemToColor = "Dash"
+	elseif itemKey == "BonkColor" then currentItemToColor = "Bonk" -- [NUEVO]
+	end
+	
 	rgbFrame.Visible = true
 	screenGui.DisplayOrder = 25 
 end
@@ -439,8 +453,8 @@ local function renderAbilityRow(config, playerData)
 	nameLab.ZIndex = 12
 	
 	if isOwned then
-		-- Si es una habilidad con color (Salto Doble o Dash)
-		if config.Key == "DoubleJump" or config.Key == "DashUnlock" then
+		-- [ACTUALIZADO] Ahora incluye "BonkUnlock" para mostrar el botón de Color
+		if config.Key == "DoubleJump" or config.Key == "DashUnlock" or config.Key == "BonkUnlock" then
 			local colBtn = createStyledButton(
 				card, 
 				getTxt("BTN_COLOR"), 
@@ -450,7 +464,7 @@ local function renderAbilityRow(config, playerData)
 			colBtn.Size = UDim2.new(0, 120, 0, 45)
 			colBtn.Position = UDim2.new(1, -15, 0.5, 0); colBtn.AnchorPoint = Vector2.new(1, 0.5)
 			
-			-- [MODIFICACIÓN VIP]: USANDO MÓDULO VIPLIST
+			-- MODIFICACIÓN VIP: USANDO MÓDULO VIPLIST
 			colBtn.MouseButton1Click:Connect(function()
 				SoundManager.Play("ShopButton")
 				
@@ -592,7 +606,7 @@ local function renderUpgradeRow(key, playerData)
 	return row
 end
 
--- [NUEVO] RENDERIZADO DE FILA DE MONEDAS
+-- RENDERIZADO DE FILA DE MONEDAS
 local function renderCoinRow(pkg)
 	local card = Instance.new("Frame")
 	card.Size = UDim2.new(1, 0, 0, 90)
@@ -614,7 +628,7 @@ local function renderCoinRow(pkg)
 	icon.Size = UDim2.new(0.8, 0, 0.8, 0)
 	icon.Position = UDim2.new(0.5,0,0.5,0); icon.AnchorPoint = Vector2.new(0.5,0.5)
 	icon.BackgroundTransparency = 1; 
-	icon.Image = DecalManager.Get(pkg.IconKey) -- Usamos DecalManager con la clave nueva
+	icon.Image = DecalManager.Get(pkg.IconKey) 
 	icon.ZIndex = 13
 	
 	-- TEXTO
@@ -685,7 +699,7 @@ refreshAllTabs = function()
 		end
 	end
 	
-	-- [MODIFICADO] PESTAÑA MONEDAS
+	-- PESTAÑA MONEDAS
 	local coinScroll = contentFrames["Coins"]
 	for _, c in pairs(coinScroll:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
 	

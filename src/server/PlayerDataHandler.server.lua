@@ -7,7 +7,7 @@ local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 local ShopConfig = require(sharedFolder:WaitForChild("ShopConfig"))
 
 -- CONFIGURACIÓN
-local DATA_VERSION = "BETA1.8" -- Si cambiaste versión, asegúrate de mantener la misma
+local DATA_VERSION = "BETA1.6" 
 local MyDataStore = DataStoreService:GetDataStore("PlayerData_" .. DATA_VERSION)
 
 local DefaultData = {
@@ -29,6 +29,11 @@ local DefaultData = {
 		DashDistance = 1,
 		DashSpeed = 1,
 		DashColor = 1,
+		
+		BonkUnlock = false,
+		BonkStun = 1,
+		BonkCooldown = 1,
+		BonkColor = 1,
 		
 		MaxStamina = 1,
 		StaminaRegen = 1,
@@ -74,14 +79,15 @@ local function reconcile(target, template)
 end
 
 -------------------------------------------------------------------------------
--- SINCRONIZADOR DE ATRIBUTOS (MEJORADO PARA COLORES)
+-- SINCRONIZADOR DE ATRIBUTOS
 -------------------------------------------------------------------------------
 local function syncAttributes(player, upgrades)
 	if not player or not upgrades then return end
 	
 	for key, level in pairs(upgrades) do
 		-- 1. Stats Numéricos (Niveles -> Valores Reales)
-		if ShopConfig.Stats[key] then
+		-- [CORRECCIÓN] Verificamos que sea una tabla antes de pedir su largo (#)
+		if ShopConfig.Stats[key] and type(ShopConfig.Stats[key]) == "table" then
 			local safeLevel = math.clamp(level, 1, #ShopConfig.Stats[key])
 			local realValue = ShopConfig.Stats[key][safeLevel]
 			player:SetAttribute(key, realValue)
@@ -90,15 +96,12 @@ local function syncAttributes(player, upgrades)
 		elseif type(level) == "boolean" then
 			player:SetAttribute(key, level)
 			
-		-- 3. COLORES (Tablas RGB -> Color3) [NUEVO]
-		-- Detectamos si es una tabla y tiene componente R (Rojo)
+		-- 3. COLORES (Tablas RGB -> Color3)
 		elseif type(level) == "table" and level.R then
 			local color = Color3.new(level.R, level.G, level.B)
 			player:SetAttribute(key, color)
 		end
 	end
-	
-	-- print("🔄 Stats sincronizados para " .. player.Name)
 end
 
 -- CARGAR DATOS

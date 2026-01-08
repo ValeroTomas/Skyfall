@@ -38,9 +38,9 @@ if not countdownEvent then
 end
 
 -- CONFIGURACIÓN
-local IntermissionTime = 20 
-local MinPlayers = 2   
-local ROUND_DURATION = 150 
+local IntermissionTime = 15 
+local MinPlayers = 2  
+local ROUND_DURATION = 200 
 
 _G.LluviaActiva = false
 _G.DuracionRondaActual = 0

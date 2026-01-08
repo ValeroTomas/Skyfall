@@ -2,7 +2,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
--- ContentProvider ya no se necesita aquí, la carga se delegará a la pantalla de carga
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -23,13 +22,15 @@ end
 
 local pushEvent = ReplicatedStorage:WaitForChild("PushEvent")
 local dashEvent = ReplicatedStorage:WaitForChild("DashEvent")
+local bonkEvent = ReplicatedStorage:WaitForChild("BonkEvent")
 local cooldownEvent = ReplicatedStorage:WaitForChild("CooldownEvent")
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
 
--- ASSETS (Usando Managers)
+-- ASSETS
 local CART_ICON = DecalManager.Get("Cart")
 local DASH_ICON = DecalManager.Get("Dash")
 local PUSH_ICON = DecalManager.Get("Push")
+local BONK_ICON = DecalManager.Get("Bonk")
 local CUSTOM_FONT = FontManager.Get("Cartoon")
 
 -------------------------------------------------------------------
@@ -58,53 +59,44 @@ layout.SortOrder = Enum.SortOrder.LayoutOrder
 -- 3. UTILS VISUALES (PALETA DE COLORES)
 -------------------------------------------------------------------
 local COLORS = {
-	-- TIENDA (Amarillo/Naranja Fondo, Azul Borde)
-	SHOP_BG_1 = Color3.fromRGB(255, 220, 0),    -- Amarillo Oro
-	SHOP_BG_2 = Color3.fromRGB(255, 140, 0),    -- Naranja
-	SHOP_STR_1 = Color3.fromRGB(0, 255, 255),   -- Cyan Eléctrico
-	SHOP_STR_2 = Color3.fromRGB(0, 100, 255),   -- Azul Profundo
+	-- TIENDA
+	SHOP_BG_1 = Color3.fromRGB(255, 220, 0),
+	SHOP_BG_2 = Color3.fromRGB(255, 140, 0),
+	SHOP_STR_1 = Color3.fromRGB(0, 255, 255),
+	SHOP_STR_2 = Color3.fromRGB(0, 100, 255),
 
-	-- HABILIDAD LISTA (Celeste Fondo, Verde Borde)
-	READY_BG_1 = Color3.fromRGB(135, 206, 250), -- Celeste Claro
-	READY_BG_2 = Color3.fromRGB(0, 150, 255),   -- Azul Cielo
-	READY_STR_1 = Color3.fromRGB(0, 255, 100),  -- Verde Lima
-	READY_STR_2 = Color3.fromRGB(0, 150, 50),   -- Verde Oscuro
+	-- HABILIDAD LISTA
+	READY_BG_1 = Color3.fromRGB(135, 206, 250),
+	READY_BG_2 = Color3.fromRGB(0, 150, 255),
+	READY_STR_1 = Color3.fromRGB(0, 255, 100),
+	READY_STR_2 = Color3.fromRGB(0, 150, 50),
 
-	-- HABILIDAD COOLDOWN (Oscuro Fondo, Rojo Borde)
-	CD_BG_1 = Color3.fromRGB(60, 60, 70),       -- Gris Oscuro
-	CD_BG_2 = Color3.fromRGB(20, 20, 25),       -- Casi Negro
-	CD_STR_1 = Color3.fromRGB(255, 50, 50),     -- Rojo Claro
-	CD_STR_2 = Color3.fromRGB(150, 0, 0),       -- Rojo Oscuro
+	-- HABILIDAD COOLDOWN
+	CD_BG_1 = Color3.fromRGB(60, 60, 70),
+	CD_BG_2 = Color3.fromRGB(20, 20, 25),
+	CD_STR_1 = Color3.fromRGB(255, 50, 50),
+	CD_STR_2 = Color3.fromRGB(150, 0, 0),
 
-	-- FLASH / TEXTO
 	WHITE = Color3.fromRGB(255, 255, 255),
 	SILVER = Color3.fromRGB(200, 200, 200)
 }
 
--- Función para actualizar el gradiente del BORDE (Stroke)
 local function updateStrokeGradient(stroke, state)
-	stroke.Color = Color3.new(1,1,1) -- Base blanca necesaria
-	
+	stroke.Color = Color3.new(1,1,1)
 	local grad = stroke:FindFirstChild("StrokeGradient")
 	if not grad then
 		grad = Instance.new("UIGradient")
 		grad.Name = "StrokeGradient"; grad.Rotation = 90; grad.Parent = stroke
 	end
 	
-	if state == "SHOP" then
-		grad.Color = ColorSequence.new(COLORS.SHOP_STR_1, COLORS.SHOP_STR_2)
-	elseif state == "READY" then
-		grad.Color = ColorSequence.new(COLORS.READY_STR_1, COLORS.READY_STR_2)
-	elseif state == "COOLDOWN" then
-		grad.Color = ColorSequence.new(COLORS.CD_STR_1, COLORS.CD_STR_2)
-	elseif state == "FLASH_GREEN" then
-		grad.Color = ColorSequence.new(COLORS.WHITE, COLORS.READY_STR_1)
-	elseif state == "FLASH_RED" then
-		grad.Color = ColorSequence.new(COLORS.WHITE, COLORS.CD_STR_1)
+	if state == "SHOP" then grad.Color = ColorSequence.new(COLORS.SHOP_STR_1, COLORS.SHOP_STR_2)
+	elseif state == "READY" then grad.Color = ColorSequence.new(COLORS.READY_STR_1, COLORS.READY_STR_2)
+	elseif state == "COOLDOWN" then grad.Color = ColorSequence.new(COLORS.CD_STR_1, COLORS.CD_STR_2)
+	elseif state == "FLASH_GREEN" then grad.Color = ColorSequence.new(COLORS.WHITE, COLORS.READY_STR_1)
+	elseif state == "FLASH_RED" then grad.Color = ColorSequence.new(COLORS.WHITE, COLORS.CD_STR_1)
 	end
 end
 
--- Función para actualizar el gradiente del FONDO (Background)
 local function updateBackgroundGradient(frame, state)
 	local grad = frame:FindFirstChild("BackGradient")
 	if not grad then
@@ -112,12 +104,9 @@ local function updateBackgroundGradient(frame, state)
 		grad.Name = "BackGradient"; grad.Rotation = 45; grad.Parent = frame
 	end
 	
-	if state == "SHOP" then
-		grad.Color = ColorSequence.new(COLORS.SHOP_BG_1, COLORS.SHOP_BG_2)
-	elseif state == "READY" then
-		grad.Color = ColorSequence.new(COLORS.READY_BG_1, COLORS.READY_BG_2)
-	elseif state == "COOLDOWN" then
-		grad.Color = ColorSequence.new(COLORS.CD_BG_1, COLORS.CD_BG_2)
+	if state == "SHOP" then grad.Color = ColorSequence.new(COLORS.SHOP_BG_1, COLORS.SHOP_BG_2)
+	elseif state == "READY" then grad.Color = ColorSequence.new(COLORS.READY_BG_1, COLORS.READY_BG_2)
+	elseif state == "COOLDOWN" then grad.Color = ColorSequence.new(COLORS.CD_BG_1, COLORS.CD_BG_2)
 	end
 end
 
@@ -135,28 +124,21 @@ local function createSlot(id, defaultKey, order, initialState)
 	frame.BackgroundColor3 = Color3.new(1,1,1)
 	frame.LayoutOrder = order
 	frame.Visible = false 
-	
 	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
 	
-	-- INICIALIZAR FONDO SEGÚN ESTADO (SHOP vs READY)
 	updateBackgroundGradient(frame, initialState)
 	
-	-- BORDE (STROKE)
 	local stroke = Instance.new("UIStroke", frame)
 	stroke.Thickness = 4
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	updateStrokeGradient(stroke, initialState)
 	
-	-- ICONO
 	local icon = Instance.new("ImageLabel", frame)
 	icon.Size = UDim2.new(0.65, 0, 0.65, 0)
 	icon.Position = UDim2.new(0.5, 0, 0.5, 0)
 	icon.AnchorPoint = Vector2.new(0.5, 0.5)
-	icon.BackgroundTransparency = 1
-	icon.Image = ""
-	icon.ZIndex = 2
+	icon.BackgroundTransparency = 1; icon.Image = ""; icon.ZIndex = 2
 	
-	-- TECLA (Hint)
 	local hint = Instance.new("TextLabel", frame)
 	hint.Size = UDim2.new(0, 24, 0, 24)
 	hint.Position = UDim2.new(0.5, 0, 0, -12)
@@ -164,66 +146,43 @@ local function createSlot(id, defaultKey, order, initialState)
 	hint.BackgroundTransparency = 1 
 	hint.Text = defaultKey
 	hint.FontFace = CUSTOM_FONT
-	hint.TextSize = 20
-	hint.TextColor3 = Color3.new(1,1,1)
-	hint.ZIndex = 10
+	hint.TextSize = 20; hint.TextColor3 = Color3.new(1,1,1); hint.ZIndex = 10
 	
 	local textGrad = Instance.new("UIGradient", hint)
 	textGrad.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255), Color3.fromRGB(0, 100, 255))
 	textGrad.Rotation = 90
-	
 	local hStroke = Instance.new("UIStroke", hint)
 	hStroke.Thickness = 1.5; hStroke.Color = Color3.new(0,0,0)
 
-	-- OVERLAY COOLDOWN (Cortina)
 	local cdOverlay = Instance.new("Frame", frame)
-	cdOverlay.BackgroundColor3 = Color3.new(0,0,0)
-	cdOverlay.BackgroundTransparency = 0.4
-	cdOverlay.Visible = false
-	cdOverlay.ZIndex = 5
-	cdOverlay.BorderSizePixel = 0
-	cdOverlay.AnchorPoint = Vector2.new(0, 0)
-	cdOverlay.Position = UDim2.new(0, 0, 0, 0)
+	cdOverlay.BackgroundColor3 = Color3.new(0,0,0); cdOverlay.BackgroundTransparency = 0.4
+	cdOverlay.Visible = false; cdOverlay.ZIndex = 5; cdOverlay.BorderSizePixel = 0
+	cdOverlay.AnchorPoint = Vector2.new(0, 0); cdOverlay.Position = UDim2.new(0, 0, 0, 0)
 	cdOverlay.Size = UDim2.new(1, 0, 1, 0)
 	Instance.new("UICorner", cdOverlay).CornerRadius = UDim.new(0, 12)
 	
-	-- TEXTO COOLDOWN (Ahora con Gradiente y Stroke)
 	local cdText = Instance.new("TextLabel", cdOverlay)
-	cdText.Size = UDim2.new(1,0,1,0)
-	cdText.BackgroundTransparency = 1
-	cdText.TextColor3 = Color3.new(1,1,1)
-	cdText.Font = Enum.Font.GothamBlack 
-	cdText.TextSize = 28
-	cdText.Visible = true
-	cdText.ZIndex = 6
+	cdText.Size = UDim2.new(1,0,1,0); cdText.BackgroundTransparency = 1
+	cdText.TextColor3 = Color3.new(1,1,1); cdText.Font = Enum.Font.GothamBlack 
+	cdText.TextSize = 28; cdText.Visible = true; cdText.ZIndex = 6
 	
-	-- Estilo del Texto de Cooldown
 	local cdTextStroke = Instance.new("UIStroke", cdText)
-	cdTextStroke.Thickness = 2
-	cdTextStroke.Color = Color3.new(0,0,0) 
-	
+	cdTextStroke.Thickness = 2; cdTextStroke.Color = Color3.new(0,0,0) 
 	local cdTextGrad = Instance.new("UIGradient", cdText)
-	cdTextGrad.Color = ColorSequence.new(COLORS.WHITE, COLORS.SILVER)
-	cdTextGrad.Rotation = 90
+	cdTextGrad.Color = ColorSequence.new(COLORS.WHITE, COLORS.SILVER); cdTextGrad.Rotation = 90
 
-	-- OBJETO SLOT
 	local slotObj = {
-		Frame = frame,
-		Icon = icon,
-		Hint = hint,
-		AssignedAbility = nil,
-		InCooldown = false,
+		Frame = frame, Icon = icon, Hint = hint,
+		AssignedAbility = nil, InCooldown = false,
 		
 		SetAbility = function(self, abilityName, iconId)
 			self.AssignedAbility = abilityName
 			self.Icon.Image = iconId
 			self.Frame.Visible = true
-			
-			-- Reset estado a "Listo"
 			self.InCooldown = false
 			cdOverlay.Visible = false
 			updateStrokeGradient(stroke, "READY")
-			updateBackgroundGradient(frame, "READY") -- Fondo Celeste
+			updateBackgroundGradient(frame, "READY") 
 		end,
 		
 		Clear = function(self)
@@ -233,43 +192,29 @@ local function createSlot(id, defaultKey, order, initialState)
 		end,
 		
 		FlashError = function(self)
-			-- USAMOS SOUNDMANAGER
 			SoundManager.Play("AbilityError")
 			updateStrokeGradient(stroke, "FLASH_RED")
-			
 			local origin = self.Frame.Position
 			local tShake = TweenInfo.new(0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 2, true)
 			TweenService:Create(self.Frame, tShake, {Position = origin + UDim2.new(0, 5, 0, 0)}):Play()
-
 			task.delay(0.3, function()
 				self.Frame.Position = origin
-				if self.InCooldown then
-					updateStrokeGradient(stroke, "COOLDOWN")
-				else
-					updateStrokeGradient(stroke, "READY")
-				end
+				if self.InCooldown then updateStrokeGradient(stroke, "COOLDOWN")
+				else updateStrokeGradient(stroke, "READY") end
 			end)
 		end,
 		
 		StartCooldown = function(self, duration)
 			self.InCooldown = true
-			
-			-- 1. CAMBIO ESTÉTICO: ROJO Y OSCURO
 			updateStrokeGradient(stroke, "COOLDOWN")
 			updateBackgroundGradient(frame, "COOLDOWN") 
-			
-			-- 2. Activar Cortina
 			cdOverlay.Visible = true
 			cdOverlay.Size = UDim2.new(1, 0, 1, 0)
 			
-			-- 3. Animación Cortina (Hacia Arriba)
 			local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
-			local tween = TweenService:Create(cdOverlay, tweenInfo, {
-				Size = UDim2.new(1, 0, 0, 0)
-			})
+			local tween = TweenService:Create(cdOverlay, tweenInfo, {Size = UDim2.new(1, 0, 0, 0)})
 			tween:Play()
 			
-			-- Contador
 			task.spawn(function()
 				for i = duration, 1, -1 do
 					if not self.InCooldown or not self.AssignedAbility then break end
@@ -278,22 +223,16 @@ local function createSlot(id, defaultKey, order, initialState)
 				end
 			end)
 			
-			-- Fin Cooldown
 			task.delay(duration, function()
 				if not self.AssignedAbility then return end
 				self.InCooldown = false
 				cdOverlay.Visible = false
-				
-				-- 4. FLASH VERDE + VUELTA A CELESTE
-				-- USAMOS SOUNDMANAGER
 				SoundManager.Play("AbilityReady")
-				
 				updateStrokeGradient(stroke, "FLASH_GREEN")
 				updateBackgroundGradient(frame, "READY") 
 				
 				local popInfo = TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 				TweenService:Create(frame, popInfo, {Size = UDim2.new(0, SIZE_PX + 8, 0, SIZE_PX + 8)}):Play()
-				
 				task.delay(0.3, function()
 					updateStrokeGradient(stroke, "READY")
 					TweenService:Create(frame, popInfo, {Size = UDim2.new(0, SIZE_PX, 0, SIZE_PX)}):Play()
@@ -301,18 +240,15 @@ local function createSlot(id, defaultKey, order, initialState)
 			end)
 		end
 	}
-	
 	return slotObj
 end
 
--- CREACIÓN DE INSTANCIAS
--- Shop: Inicia con estilo "SHOP"
 local shopSlot = createSlot("ShopSlot", "E", 0, "SHOP")
 
--- Habilidades: Inician con estilo "READY"
 abilitySlots = {
 	createSlot("Slot1", "1", 1, "READY"),
-	createSlot("Slot2", "2", 2, "READY")
+	createSlot("Slot2", "2", 2, "READY"),
+	createSlot("Slot3", "3", 3, "READY") 
 }
 
 -------------------------------------------------------------------
@@ -333,21 +269,22 @@ local function updateLoadout()
 	
 	if state == "STARTING" or state == "WAITING" then
 		shopSlot:SetAbility("Shop", CART_ICON)
-		-- Re-aplicar estilo SHOP por si acaso
 		updateBackgroundGradient(shopSlot.Frame, "SHOP")
 		updateStrokeGradient(shopSlot.Frame:FindFirstChild("UIStroke"), "SHOP")
-		
 		for _, s in ipairs(abilitySlots) do s:Clear() end
 		
 	elseif state == "SURVIVE" then
 		shopSlot:Clear()
-		
 		local available = {}
+		
 		if player:GetAttribute("PushUnlock") == true then
 			table.insert(available, {Name = "Push", Icon = PUSH_ICON})
 		end
 		if player:GetAttribute("DashUnlock") == true then
 			table.insert(available, {Name = "Dash", Icon = DASH_ICON})
+		end
+		if player:GetAttribute("BonkUnlock") == true then
+			table.insert(available, {Name = "Bonk", Icon = BONK_ICON})
 		end
 		
 		for i, slot in ipairs(abilitySlots) do
@@ -369,6 +306,7 @@ end
 estadoValue.Changed:Connect(updateLoadout)
 player:GetAttributeChangedSignal("PushUnlock"):Connect(updateLoadout)
 player:GetAttributeChangedSignal("DashUnlock"):Connect(updateLoadout)
+player:GetAttributeChangedSignal("BonkUnlock"):Connect(updateLoadout)
 
 local function onCharAdded(c)
 	local h = c:WaitForChild("Humanoid")
@@ -383,17 +321,18 @@ task.spawn(updateLoadout)
 -- 6. INPUT HANDLER
 -------------------------------------------------------------------
 local function triggerAbility(abilityName, slotObj)
+	-- [CHECK DE STUN] Si estás stuneado, no puedes usar nada
+	if player:GetAttribute("IsStunned") == true then return end
+	
 	if slotObj.InCooldown then
 		slotObj:FlashError()
 		return 
 	end
 
-	if abilityName == "Push" then
-		pushEvent:FireServer()
-	elseif abilityName == "Dash" then
-		dashEvent:FireServer()
-	elseif abilityName == "Shop" then
-		toggleShopEvent:Fire()
+	if abilityName == "Push" then pushEvent:FireServer()
+	elseif abilityName == "Dash" then dashEvent:FireServer()
+	elseif abilityName == "Bonk" then bonkEvent:FireServer()
+	elseif abilityName == "Shop" then toggleShopEvent:Fire()
 	end
 	
 	-- Animación Click
@@ -419,13 +358,23 @@ UserInputService.InputBegan:Connect(function(input, proc)
 	if abilitySlots[2].Frame.Visible and (input.KeyCode == Enum.KeyCode.Two or input.KeyCode == Enum.KeyCode.ButtonB) then
 		triggerAbility(abilitySlots[2].AssignedAbility, abilitySlots[2])
 	end
+	
+	if abilitySlots[3].Frame.Visible and (input.KeyCode == Enum.KeyCode.Three or input.KeyCode == Enum.KeyCode.ButtonR1) then
+		triggerAbility(abilitySlots[3].AssignedAbility, abilitySlots[3])
+	end
 end)
 
 UserInputService.GamepadConnected:Connect(function()
-	shopSlot.Hint.Text = "Y"; abilitySlots[1].Hint.Text = "X"; abilitySlots[2].Hint.Text = "B"
+	shopSlot.Hint.Text = "Y"
+	abilitySlots[1].Hint.Text = "X"
+	abilitySlots[2].Hint.Text = "B"
+	abilitySlots[3].Hint.Text = "RB"
 end)
 UserInputService.GamepadDisconnected:Connect(function()
-	shopSlot.Hint.Text = "E"; abilitySlots[1].Hint.Text = "1"; abilitySlots[2].Hint.Text = "2"
+	shopSlot.Hint.Text = "E"
+	abilitySlots[1].Hint.Text = "1"
+	abilitySlots[2].Hint.Text = "2"
+	abilitySlots[3].Hint.Text = "3"
 end)
 
 -------------------------------------------------------------------

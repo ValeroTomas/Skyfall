@@ -23,8 +23,7 @@ local eventsFolder = ServerStorage:WaitForChild("PlayerDataEvents")
 local getStat = eventsFolder:WaitForChild("GetPlayerStat")
 local setStat = eventsFolder:WaitForChild("SetPlayerStat")
 
--- [NUEVO] MAPEO RÁPIDO PARA PRODUCT RECEIPT
--- Convertimos la lista de ShopConfig en un diccionario [ProductId] -> Amount para búsqueda rápida
+-- MAPEO RÁPIDO PARA PRODUCT RECEIPT
 local PRODUCT_MAP = {}
 for _, p in ipairs(ShopConfig.CoinProducts) do
 	PRODUCT_MAP[p.ProductId] = p.Amount
@@ -42,19 +41,25 @@ function shopFunction.OnServerInvoke(player, action, upgradeName, extraData)
 		local price = 0
 		local currentLevel = upgrades[upgradeName]
 		
-		-- VALIDACIÓN
+		-- VALIDACIÓN DE DEPENDENCIAS
 		if (upgradeName:match("Push") and upgradeName ~= "PushUnlock") and upgrades.PushUnlock ~= true then
 			return false, "Desbloquea Empuje primero"
 		end
 		if (upgradeName:match("Dash") and upgradeName ~= "DashUnlock") and upgrades.DashUnlock ~= true then
 			return false, "Desbloquea Esquive primero"
 		end
+		-- [NUEVO] VALIDACIÓN PARA BONK
+		if (upgradeName:match("Bonk") and upgradeName ~= "BonkUnlock") and upgrades.BonkUnlock ~= true then
+			return false, "Desbloquea Bonk primero"
+		end
 
 		-- PRECIO
+		-- Verificamos si es item especial, desbloqueo o habilidad única
 		if ShopConfig.SpecialItems[upgradeName] or upgradeName:match("Unlock") or upgradeName == "DoubleJump" then
 			if currentLevel == true then return false, "Ya tienes esto" end
 			price = ShopConfig.Prices[upgradeName]
 		else
+			-- Es una mejora de nivel (1-5)
 			currentLevel = currentLevel or 1
 			if currentLevel >= ShopConfig.MAX_LEVEL then return false, "Max Level" end
 			price = ShopConfig.Prices[upgradeName][currentLevel]
@@ -114,10 +119,14 @@ colorEvent.OnServerEvent:Connect(function(player, itemType, r, g, b)
 	local upgrades = getStat:Invoke(player, "Upgrades")
 	local keyToSave = nil
 	
+	-- Validamos que tenga la habilidad desbloqueada antes de guardar su color
 	if itemType == "DoubleJump" and upgrades.DoubleJump == true then
 		keyToSave = "DoubleJumpColor"
 	elseif itemType == "Dash" and upgrades.DashUnlock == true then
 		keyToSave = "DashColor"
+	-- [NUEVO] VALIDACIÓN BONK
+	elseif itemType == "Bonk" and upgrades.BonkUnlock == true then
+		keyToSave = "BonkColor"
 	end
 	
 	if keyToSave then
@@ -132,7 +141,7 @@ colorEvent.OnServerEvent:Connect(function(player, itemType, r, g, b)
 	end
 end)
 
--- [NUEVO] PROCESAMIENTO DE COMPRAS DE ROBUX (Developer Products)
+-- PROCESAMIENTO DE COMPRAS DE ROBUX (Developer Products)
 MarketplaceService.ProcessReceipt = function(receiptInfo)
 	local playerId = receiptInfo.PlayerId
 	local productId = receiptInfo.ProductId
@@ -149,7 +158,7 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 		
 		print("💰 Compra procesada: " .. player.Name .. " recibió " .. amountToGive .. " monedas.")
 		
-		-- Opcional: Feedback visual si lo deseas (usando RewardEvent)
+		-- Feedback visual
 		local rewardEvent = ReplicatedStorage:FindFirstChild("RewardEvent")
 		if rewardEvent then
 			rewardEvent:FireClient(player, amountToGive)
@@ -157,11 +166,8 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 		
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	elseif not player then
-		-- El jugador se desconectó antes de recibir las monedas
-		-- NO concedemos la compra todavía, Roblox reintentará cuando el jugador vuelva
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	
-	-- Si es un producto desconocido (no debería pasar), lo marcamos como completado para no atascar
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end

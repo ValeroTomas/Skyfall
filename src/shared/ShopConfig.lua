@@ -27,6 +27,12 @@ ShopConfig.Prices = {
 	MaxStamina = {100, 250, 500, 900, 1300},
 	StaminaRegen = {250, 500, 750, 1000, 1500},
 	StaminaDrain = {350, 700, 900, 1500, 2000},
+
+	-- BONK
+	BonkUnlock = 4500,
+	BonkStun = {200, 400, 700, 1000, 1500},
+	BonkCooldown = {200, 400, 700, 1000, 1500},
+	BonkColor = 6000,
 }
 
 -- VALORES REALES (STATS) POR NIVEL [1 al 5]
@@ -50,7 +56,12 @@ ShopConfig.Stats = {
 	-- STAMINA
 	MaxStamina = {100, 120, 150, 180, 250},
 	StaminaRegen = {5, 8, 12, 18, 25}, 
-	StaminaDrain = {20, 18, 16, 14, 10}, 
+	StaminaDrain = {20, 18, 16, 14, 10},
+
+	-- BONK
+	BonkStun = {1, 2, 2.5, 3, 3.5},
+	BonkCooldown = {35, 32, 30, 27, 2},
+	BonkColor = 6000,
 }
 
 -- ITEMS ESPECIALES
@@ -59,7 +70,9 @@ ShopConfig.SpecialItems = {
 	DashColor = true,
 	DoubleJump = true,
 	PushUnlock = true,
-	DashUnlock = true
+	DashUnlock = true,
+	BonkUnlock = true,
+	BonkColor = true,
 }
 
 -- [NUEVO] PAQUETES DE MONEDAS (Developer Products)

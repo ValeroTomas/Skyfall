@@ -38,7 +38,7 @@ if not countdownEvent then
 end
 
 -- CONFIGURACIÓN
-local IntermissionTime = 15 
+local IntermissionTime = 20 
 local MinPlayers = 2  
 local ROUND_DURATION = 200 
 

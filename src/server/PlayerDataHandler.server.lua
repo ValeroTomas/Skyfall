@@ -6,13 +6,29 @@ local ServerStorage = game:GetService("ServerStorage")
 local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 local ShopConfig = require(sharedFolder:WaitForChild("ShopConfig"))
 
+-- [NUEVO] Referencia al evento de equipar
+local equipEvent = ReplicatedStorage:FindFirstChild("EquipAbilityEvent")
+if not equipEvent then
+	equipEvent = Instance.new("RemoteEvent")
+	equipEvent.Name = "EquipAbilityEvent"
+	equipEvent.Parent = ReplicatedStorage
+end
+
 -- CONFIGURACIÓN
-local DATA_VERSION = "BETA1.6" 
+local DATA_VERSION = "BETA1.7" -- Incrementamos versión para asegurar datos limpios si es necesario
 local MyDataStore = DataStoreService:GetDataStore("PlayerData_" .. DATA_VERSION)
 
 local DefaultData = {
 	Coins = 70000,
 	Wins = 0,
+	
+	-- [NUEVO] Aquí guardamos el inventario activo
+	Loadout = {
+		Slot1 = nil,
+		Slot2 = nil,
+		Slot3 = nil
+	},
+	
 	Upgrades = {
 		JumpHeight = 1,
 		JumpStaminaCost = 1,
@@ -81,26 +97,33 @@ end
 -------------------------------------------------------------------------------
 -- SINCRONIZADOR DE ATRIBUTOS
 -------------------------------------------------------------------------------
-local function syncAttributes(player, upgrades)
-	if not player or not upgrades then return end
+local function syncAttributes(player, data)
+	if not player or not data then return end
 	
-	for key, level in pairs(upgrades) do
-		-- 1. Stats Numéricos (Niveles -> Valores Reales)
-		-- [CORRECCIÓN] Verificamos que sea una tabla antes de pedir su largo (#)
+	-- 1. Sincronizar Upgrades (Stats y Desbloqueos)
+	for key, level in pairs(data.Upgrades) do
+		-- Stats Numéricos
 		if ShopConfig.Stats[key] and type(ShopConfig.Stats[key]) == "table" then
 			local safeLevel = math.clamp(level, 1, #ShopConfig.Stats[key])
 			local realValue = ShopConfig.Stats[key][safeLevel]
 			player:SetAttribute(key, realValue)
 			
-		-- 2. Booleanos (Desbloqueos)
+		-- Booleanos
 		elseif type(level) == "boolean" then
 			player:SetAttribute(key, level)
 			
-		-- 3. COLORES (Tablas RGB -> Color3)
+		-- Colores
 		elseif type(level) == "table" and level.R then
 			local color = Color3.new(level.R, level.G, level.B)
 			player:SetAttribute(key, color)
 		end
+	end
+	
+	-- 2. [NUEVO] Sincronizar Loadout (Inventario)
+	if data.Loadout then
+		player:SetAttribute("EquippedSlot1", data.Loadout.Slot1)
+		player:SetAttribute("EquippedSlot2", data.Loadout.Slot2)
+		player:SetAttribute("EquippedSlot3", data.Loadout.Slot3)
 	end
 end
 
@@ -134,7 +157,7 @@ local function setupPlayer(player)
 	winsVal.Parent = ls
 	
 	-- SINCRONIZACIÓN INICIAL
-	syncAttributes(player, sessionData[player.UserId].Upgrades)
+	syncAttributes(player, sessionData[player.UserId])
 end
 
 local function savePlayer(player)
@@ -163,7 +186,7 @@ game:BindToClose(function()
 	task.wait(2) 
 end)
 
--- API EXTERNA
+-- API EXTERNA (Bindables para otros scripts del server)
 getFunction.OnInvoke = function(player, category, subKey)
 	local data = sessionData[player.UserId]
 	if not data then return nil end
@@ -186,8 +209,35 @@ setFunction.Event:Connect(function(player, category, subKey, value)
 			
 			-- SI ACTUALIZAMOS UPGRADES, RESINCRONIZAR ATRIBUTOS
 			if category == "Upgrades" then
-				syncAttributes(player, data.Upgrades)
+				syncAttributes(player, data)
 			end
 		end
+	end
+end)
+
+-- [NUEVO] EVENTO REMOTO PARA GUARDAR EL INVENTARIO (Desde el Cliente)
+equipEvent.OnServerEvent:Connect(function(player, slotNum, abilityName)
+	local data = sessionData[player.UserId]
+	if not data then return end
+	
+	local slotKey = "Slot" .. slotNum
+	
+	-- Verificar que el jugador realmente tiene desbloqueada la habilidad
+	if abilityName then
+		local unlockKey = abilityName .. "Unlock"
+		-- Excepción para habilidades que no requieren unlock (ej. si hubiera alguna básica)
+		-- Pero en tu juego Push, Dash y Bonk requieren Unlock.
+		if data.Upgrades[unlockKey] == true then
+			data.Loadout[slotKey] = abilityName
+			player:SetAttribute("EquippedSlot" .. slotNum, abilityName)
+			print(player.Name .. " equipó " .. abilityName .. " en " .. slotKey)
+		else
+			warn(player.Name .. " intentó equipar " .. abilityName .. " sin tenerla desbloqueada.")
+		end
+	else
+		-- Si abilityName es nil, significa desequipar
+		data.Loadout[slotKey] = nil
+		player:SetAttribute("EquippedSlot" .. slotNum, nil)
+		print(player.Name .. " desequipó " .. slotKey)
 	end
 end)

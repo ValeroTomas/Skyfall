@@ -5,6 +5,8 @@ local DECALS = {
 	-- HUD ICONS
 	["Coin"]      = "rbxassetid://99365746352443",
 	["Cart"]      = "rbxassetid://113277509630221",
+	["Backpack"]  = "rbxassetid://134813133367215",
+	["Notebook"]  = "rbxassetid://80559434743269",
 	["Dash"]      = "rbxassetid://97307955533015",
 	["Push"]      = "rbxassetid://76175865229928",
 	["DoubleJump"] = "rbxassetid://130535017246273",
@@ -23,6 +25,7 @@ local DECALS = {
 	["BurnTexture"] = "rbxassetid://851359309",
 	["BonkStun"] = "rbxassetid://5639840603",
 	["BonkHit"] = "rbxassetid://290833006",
+	["BlockImpact"] = "rbxassetid://4670913469",
 }
 
 -- Obtener ID

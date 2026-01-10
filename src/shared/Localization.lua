@@ -15,6 +15,8 @@ local languages = {
 		["ALIVE"] = "%s VIVOS",
 		["TIE"] = "¡EMPATE!",
 		["COUNTDOWN_GO"] = "¡YA!",
+		["HUD_INVENTORY"] = "INVENTARIO",
+		["HUD_EMPTY"] = "VACÍO",
 		
 		-- LOADING SCREEN
 		["LOADING_ASSETS"] = "CARGANDO RECURSOS...",
@@ -94,6 +96,8 @@ local languages = {
 		["ALIVE"] = "%s ALIVE",
 		["TIE"] = "TIE!",
 		["COUNTDOWN_GO"] = "GO!",
+		["HUD_INVENTORY"] = "INVENTORY",
+		["HUD_EMPTY"] = "EMPTY",
 		
 		-- LOADING SCREEN
 		["LOADING_ASSETS"] = "LOADING ASSETS...",

@@ -87,3 +87,20 @@ jumpEvent.OnServerEvent:Connect(function(player)
 		spawnVisuals(player.Character, colorAttr)
 	end
 end)
+
+-- [NUEVO] PUENTE PARA BOTS - SALTO DOBLE
+local botJumpBridge = ReplicatedStorage:FindFirstChild("BotJumpBridge")
+if not botJumpBridge then
+	botJumpBridge = Instance.new("BindableEvent")
+	botJumpBridge.Name = "BotJumpBridge"
+	botJumpBridge.Parent = ReplicatedStorage
+end
+
+botJumpBridge.Event:Connect(function(botModel)
+	-- Verificar que el bot tiene salto doble
+	if botModel:GetAttribute("DoubleJump") and botModel:GetAttribute("IsExhausted") ~= true then
+		-- Usar color personalizado del bot o color por defecto
+		local colorAttr = botModel:GetAttribute("DoubleJumpColor")
+		spawnVisuals(botModel, colorAttr)
+	end
+end)

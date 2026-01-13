@@ -3,18 +3,27 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 
--- EVENTOS
+-- EVENTOS (Clientes Reales)
 local dashEvent = ReplicatedStorage:WaitForChild("DashEvent")
 local pushEvent = ReplicatedStorage:WaitForChild("PushEvent")
 local bonkEvent = ReplicatedStorage:WaitForChild("BonkEvent")
 local roundStartEvent = ReplicatedStorage:WaitForChild("RoundStartEvent")
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
 
+-- EVENTO (Feedback de Cooldown)
 local cooldownEvent = ReplicatedStorage:FindFirstChild("CooldownEvent")
 if not cooldownEvent then
 	cooldownEvent = Instance.new("RemoteEvent")
 	cooldownEvent.Name = "CooldownEvent"
 	cooldownEvent.Parent = ReplicatedStorage
+end
+
+-- [NUEVO] PUENTE PARA BOTS
+local botBridge = ReplicatedStorage:FindFirstChild("BotAbilityBridge")
+if not botBridge then
+	botBridge = Instance.new("BindableEvent")
+	botBridge.Name = "BotAbilityBridge"
+	botBridge.Parent = ReplicatedStorage
 end
 
 local sharedFolder = ReplicatedStorage:WaitForChild("shared")
@@ -46,55 +55,59 @@ local function canUseAbility()
 end
 
 -------------------------------------------------------------------
--- [NUEVO] SISTEMA DE STUN POR TIMESTAMP
+-- SISTEMA DE STUN POR TIMESTAMP
 -------------------------------------------------------------------
--- Aplica stun solo si el nuevo tiempo es mayor al actual
-local function applyStun(player, duration)
-	if not player then return end
-	local now = workspace:GetServerTimeNow() -- Tiempo ultra-preciso sincronizado
-	local currentEnd = player:GetAttribute("StunnedUntil") or 0
+local function applyStun(playerOrBot, duration)
+	if not playerOrBot then return end
+	local now = workspace:GetServerTimeNow()
+	local currentEnd = playerOrBot:GetAttribute("StunnedUntil") or 0
 	
 	if (now + duration) > currentEnd then
-		player:SetAttribute("StunnedUntil", now + duration)
+		playerOrBot:SetAttribute("StunnedUntil", now + duration)
 	end
 end
 
--- Verifica si el tiempo actual es menor al tiempo de fin del stun
-local function isStunned(player)
-	local untilTime = player:GetAttribute("StunnedUntil") or 0
+local function isStunned(playerOrBot)
+	local untilTime = playerOrBot:GetAttribute("StunnedUntil") or 0
 	return workspace:GetServerTimeNow() < untilTime
 end
 
-local function isOnCooldown(player, abilityName, duration)
+local function isOnCooldown(playerOrBot, abilityName, duration)
 	if not canUseAbility() then return true end
 	
 	-- VALIDACIÓN ROBUSTA CON TIMESTAMP
-	if isStunned(player) then return true end
+	if isStunned(playerOrBot) then return true end
 	
-	if not cooldowns[player] then cooldowns[player] = {} end
-	local nextUse = cooldowns[player][abilityName] or 0
+	if not cooldowns[playerOrBot] then cooldowns[playerOrBot] = {} end
+	local nextUse = cooldowns[playerOrBot][abilityName] or 0
 	local now = os.time()
 	
 	if now >= nextUse then
-		cooldowns[player][abilityName] = now + duration
-		cooldownEvent:FireClient(player, abilityName, duration)
+		cooldowns[playerOrBot][abilityName] = now + duration
+		
+		-- Solo enviamos evento al cliente si es un jugador real
+		if playerOrBot:IsA("Player") then
+			cooldownEvent:FireClient(playerOrBot, abilityName, duration)
+		end
 		return false
 	end
 	return true
 end
 
+-- Limpieza de cooldowns
 Players.PlayerRemoving:Connect(function(player) cooldowns[player] = nil end)
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function()
 		cooldowns[player] = {} 
 		cooldownEvent:FireClient(player, "RESET_ALL", 0)
-		player:SetAttribute("StunnedUntil", 0) -- Reset al nacer
+		player:SetAttribute("StunnedUntil", 0) 
 	end)
 end)
 
 roundStartEvent.Event:Connect(function()
 	cooldowns = {} 
 	cooldownEvent:FireAllClients("RESET_ALL", 0)
+	-- Nota: Los bots se limpian solos al ser destruidos por el BotManager
 end)
 
 local function animateArms(character)
@@ -115,7 +128,7 @@ local function animateArms(character)
 	end
 end
 
--- EFECTOS VISUALES (Humo sale de la cabeza)
+-- EFECTOS VISUALES
 local function createStunEffect(character, duration)
 	local head = character:FindFirstChild("Head")
 	if not head then return end
@@ -123,47 +136,83 @@ local function createStunEffect(character, duration)
 	local ID_STAR = DecalManager.Get("BonkStun")
 	local ID_SMOKE = "rbxassetid://243662261" 
 
-	-- Estrellas (Duran lo que el stun)
 	local stars = Instance.new("ParticleEmitter")
-	stars.Texture = ID_STAR
-	stars.Size = NumberSequence.new(0.8, 0)
-	stars.Rate = 5
-	stars.Lifetime = NumberRange.new(duration) 
-	stars.Parent = head
+	stars.Texture = ID_STAR; stars.Size = NumberSequence.new(0.8, 0); stars.Rate = 5
+	stars.Lifetime = NumberRange.new(duration); stars.Parent = head
 	
 	SoundManager.Play("BatHit", head)
 	
-	-- Humo (Explosión instantánea desde la cabeza)
 	local smoke = Instance.new("ParticleEmitter")
-	smoke.Name = "HitSmoke"
-	smoke.Texture = ID_SMOKE
-	smoke.Size = NumberSequence.new(2, 5)
+	smoke.Name = "HitSmoke"; smoke.Texture = ID_SMOKE; smoke.Size = NumberSequence.new(2, 5)
 	smoke.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1)})
-	smoke.Lifetime = NumberRange.new(0.4, 0.6)
-	smoke.Rate = 0; smoke.Enabled = false 
-	smoke.Parent = head
-	smoke:Emit(30) -- ¡PUM!
+	smoke.Lifetime = NumberRange.new(0.4, 0.6); smoke.Rate = 0; smoke.Enabled = false; smoke.Parent = head
+	smoke:Emit(30)
 	
-	Debris:AddItem(stars, duration) 
-	Debris:AddItem(smoke, 1.5) 
+	Debris:AddItem(stars, duration); Debris:AddItem(smoke, 1.5) 
 end
 
 -------------------------------------------------------------------
--- DASH & PUSH
+-- FUNCIONES CENTRALIZADAS (LÓGICA REAL)
 -------------------------------------------------------------------
-dashEvent.OnServerEvent:Connect(function(player)
-	local cd = player:GetAttribute("DashCooldown") or 8
-	if isOnCooldown(player, "Dash", cd) then return end
 
-	local force = player:GetAttribute("DashDistance") or 50
-	local char = player.Character
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	if not hrp or char.Humanoid.Health <= 0 then return end
+local function DoDash(playerOrBot, character)
+	local cd = playerOrBot:GetAttribute("DashCooldown") or 8
+	if isOnCooldown(playerOrBot, "Dash", cd) then return end
+
+	local force = playerOrBot:GetAttribute("DashDistance") or 50
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	if not hrp or character.Humanoid.Health <= 0 then return end
 
 	SoundManager.Play("Dash", hrp)
 	
+	-- [NUEVO] EFECTOS VISUALES DE DASH PARA TODOS
+	local dashColor = playerOrBot:GetAttribute("DashColor")
+	if not dashColor then
+		-- Color por defecto para dash: azul brillante
+		dashColor = Color3.fromRGB(0, 150, 255)
+	end
+	
+	-- Crear trail de dash
+	local a0 = Instance.new("Attachment", hrp)
+	local a1 = Instance.new("Attachment", hrp)
+	a0.Position = Vector3.new(0, 2, 0)
+	a1.Position = Vector3.new(0, -2, 0)
+
+	local dashTrail = Instance.new("Trail")
+	dashTrail.Name = "DashTrail"
+	dashTrail.Attachment0 = a0
+	dashTrail.Attachment1 = a1
+	dashTrail.Color = ColorSequence.new(dashColor)
+	dashTrail.Transparency = NumberSequence.new(0.2, 0.8)
+	dashTrail.Lifetime = 0.3
+	dashTrail.FaceCamera = true
+	dashTrail.LightEmission = 0.8
+	dashTrail.Enabled = true
+	dashTrail.Parent = hrp
+
+	-- Partículas de dash
+	local particles = Instance.new("ParticleEmitter")
+	particles.Texture = "rbxassetid://243662261"
+	particles.Color = ColorSequence.new(dashColor)
+	particles.Size = NumberSequence.new(1, 3)
+	particles.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1)})
+	particles.Lifetime = NumberRange.new(0.2, 0.4)
+	particles.Rate = 50
+	particles.Speed = NumberRange.new(5, 15)
+	particles.Acceleration = Vector3.new(0, -10, 0)
+	particles.Parent = hrp
+	particles:Emit(20)
+
+	-- Limpiar efectos
+	task.delay(1, function()
+		if dashTrail then dashTrail:Destroy() end
+		if a0 then a0:Destroy() end
+		if a1 then a1:Destroy() end
+		if particles then particles:Destroy() end
+	end)
+
 	local wind = Instance.new("ParticleEmitter"); wind.Parent = hrp; wind.Enabled = false
-	Debris:AddItem(wind, 1) -- Dummy para el layout
+	Debris:AddItem(wind, 1)
 
 	local att = Instance.new("Attachment", hrp)
 	local lv = Instance.new("LinearVelocity", att)
@@ -172,25 +221,24 @@ dashEvent.OnServerEvent:Connect(function(player)
 
 	task.wait(0.2)
 	lv:Destroy(); att:Destroy()
-end)
+end
 
-pushEvent.OnServerEvent:Connect(function(player)
-	local cd = player:GetAttribute("PushCooldown") or 10
-	if isOnCooldown(player, "Push", cd) then return end
+local function DoPush(playerOrBot, character)
+	local cd = playerOrBot:GetAttribute("PushCooldown") or 10
+	if isOnCooldown(playerOrBot, "Push", cd) then return end
 
-	local pushPower = player:GetAttribute("PushDistance") or 50 
-	local rangeSize = player:GetAttribute("PushRange") or 10    
-	local char = player.Character
-	local root = char and char:FindFirstChild("HumanoidRootPart")
-	if not root or char.Humanoid.Health <= 0 then return end
+	local pushPower = playerOrBot:GetAttribute("PushDistance") or 50 
+	local rangeSize = playerOrBot:GetAttribute("PushRange") or 10    
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or character.Humanoid.Health <= 0 then return end
 
 	SoundManager.Play("Push", root)
-	animateArms(char)
+	animateArms(character)
 
 	local boxSize = Vector3.new(10, 8, rangeSize) 
 	local boxCFrame = root.CFrame * CFrame.new(0, 0, -rangeSize / 2)
 	local overlapParams = OverlapParams.new()
-	overlapParams.FilterDescendantsInstances = {char}
+	overlapParams.FilterDescendantsInstances = {character}
 	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
 
 	local partsInBox = workspace:GetPartBoundsInBox(boxCFrame, boxSize, overlapParams)
@@ -202,8 +250,11 @@ pushEvent.OnServerEvent:Connect(function(player)
 		
 		if enemyRoot and not hitCharacters[enemyChar] then
 			hitCharacters[enemyChar] = true 
+			
+			-- Taggear atacante (si es Player usamos el objeto, si es Bot usamos el Modelo)
 			local tag = enemyChar:FindFirstChild("LastAttacker") or Instance.new("ObjectValue", enemyChar)
-			tag.Name = "LastAttacker"; tag.Value = player
+			tag.Name = "LastAttacker"
+			tag.Value = playerOrBot -- Guarda Player o Modelo Bot
 			Debris:AddItem(tag, 10) 
 
 			local att = Instance.new("Attachment", enemyRoot)
@@ -216,40 +267,36 @@ pushEvent.OnServerEvent:Connect(function(player)
 			Debris:AddItem(att, 0.25); Debris:AddItem(vel, 0.25)
 		end
 	end
-end)
+end
 
--------------------------------------------------------------------
--- LÓGICA DEL BONK (Bate)
--------------------------------------------------------------------
-bonkEvent.OnServerEvent:Connect(function(player)
-	local cdLevel = player:GetAttribute("BonkCooldown") or 8
-	local stunTime = player:GetAttribute("BonkStun") or 2
+local function DoBonk(playerOrBot, character)
+	local cdLevel = playerOrBot:GetAttribute("BonkCooldown") or 8
+	local stunTime = playerOrBot:GetAttribute("BonkStun") or 2
 	
-	if isOnCooldown(player, "Bonk", cdLevel) then return end
+	if isOnCooldown(playerOrBot, "Bonk", cdLevel) then return end
 	
-	local char = player.Character
-	local root = char and char:FindFirstChild("HumanoidRootPart")
-	local hum = char and char:FindFirstChild("Humanoid")
-	local rightHand = char and char:FindFirstChild("RightHand") 
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local hum = character and character:FindFirstChild("Humanoid")
+	local rightHand = character and character:FindFirstChild("RightHand") 
 	
 	if not root or not hum or hum.Health <= 0 or not rightHand then return end
 	
-	-- [1] AUTO-LOCK ATACANTE (Timestamp)
-	applyStun(player, SELF_LOCK_TIME)
+	-- [1] AUTO-LOCK ATACANTE
+	applyStun(playerOrBot, SELF_LOCK_TIME)
 	hum.WalkSpeed = 0; hum.JumpPower = 0
 	
 	-- SPAWN BATE
 	local bat = batTemplate:Clone()
-	bat.Name = "Bat" -- Nombre clave para la interrupción
+	bat.Name = "Bat"
 	bat.CanCollide = false; bat.Massless = true
-	local batColor = player:GetAttribute("BonkColor")
+	local batColor = playerOrBot:GetAttribute("BonkColor")
 	
 	if typeof(batColor) == "Color3" then
 		for _, p in pairs(bat:GetDescendants()) do if p:IsA("BasePart") then p.Color = batColor end end
 		if bat:IsA("BasePart") then bat.Color = batColor end
 	end
 	
-	bat.Parent = char
+	bat.Parent = character
 	local weld = Instance.new("Weld")
 	weld.Part0 = rightHand; weld.Part1 = bat; weld.C0 = BAT_GRIP_OFFSET; weld.Parent = bat
 	Debris:AddItem(bat, 1.5) 
@@ -261,22 +308,21 @@ bonkEvent.OnServerEvent:Connect(function(player)
 	local swingTrack = animator:LoadAnimation(swingAnim)
 	swingTrack.Priority = Enum.AnimationPriority.Action; swingTrack:Play()
 	
-	-- TIMER PARA RESTAURAR VELOCIDAD (Si ya no está stuneado por otra causa)
+	-- TIMER PARA RESTAURAR VELOCIDAD
 	task.delay(SELF_LOCK_TIME, function()
-		if player and hum and not isStunned(player) then
+		if playerOrBot and hum and not isStunned(playerOrBot) then
 			hum.WalkSpeed = 16; hum.JumpPower = 50
 		end
 	end)
 	
-	-- HITBOX (Windup delay)
+	-- HITBOX
 	task.delay(0.3, function() 
-		-- Interrupción: Si me stunearon en este lapso, el bate habrá sido destruido.
-		if not char or not bat or not bat.Parent then return end
+		if not character or not bat or not bat.Parent then return end
 		
 		local hitSize = Vector3.new(6, 6, 8)
 		local hitCFrame = root.CFrame * CFrame.new(0, 0, -4) 
 		local params = OverlapParams.new()
-		params.FilterDescendantsInstances = {char}
+		params.FilterDescendantsInstances = {character}
 		params.FilterType = Enum.RaycastFilterType.Exclude
 		local hits = workspace:GetPartBoundsInBox(hitCFrame, hitSize, params)
 		local hitHumanoids = {}
@@ -285,27 +331,27 @@ bonkEvent.OnServerEvent:Connect(function(player)
 			local enemyChar = part.Parent
 			local enemyHum = enemyChar and enemyChar:FindFirstChild("Humanoid")
 			local enemyRoot = enemyChar and enemyChar:FindFirstChild("HumanoidRootPart")
-			local enemyPlayer = Players:GetPlayerFromCharacter(enemyChar)
+			local enemyPlayer = Players:GetPlayerFromCharacter(enemyChar) 
+            -- Nota: enemyPlayer será nil si le pegamos a un bot, eso está bien.
 			
 			if enemyHum and enemyHum.Health > 0 and not hitHumanoids[enemyHum] then
 				hitHumanoids[enemyHum] = true
 				
 				createStunEffect(enemyChar, stunTime)
 				local tag = enemyChar:FindFirstChild("LastAttacker") or Instance.new("ObjectValue", enemyChar)
-				tag.Name = "LastAttacker"; tag.Value = player
+				tag.Name = "LastAttacker"; tag.Value = playerOrBot
 				Debris:AddItem(tag, 10)
 				
-				-- [2] STUN VÍCTIMA (Timestamp)
+				-- [2] STUN VÍCTIMA
 				if enemyPlayer then applyStun(enemyPlayer, stunTime) end
-				-- Backup para NPCs o scripts que lean el char
+				-- Backup para NPCs/Bots
 				enemyChar:SetAttribute("StunnedUntil", workspace:GetServerTimeNow() + stunTime) 
 				
-				-- DESARMAR AL ENEMIGO (Interrumpe su ataque si estaba cargando uno)
+				-- DESARMAR AL ENEMIGO
 				local enemyBat = enemyChar:FindFirstChild("Bat")
 				if enemyBat then enemyBat:Destroy() end
 				
-				enemyHum.WalkSpeed = 0
-				enemyHum.JumpPower = 0
+				enemyHum.WalkSpeed = 0; enemyHum.JumpPower = 0
 				
 				local stunAnim = Instance.new("Animation"); stunAnim.AnimationId = ANIM_STUN_ID
 				local stunTrack = enemyHum.Animator:LoadAnimation(stunAnim)
@@ -322,16 +368,12 @@ bonkEvent.OnServerEvent:Connect(function(player)
 				-- RESTAURAR VÍCTIMA
 				task.delay(stunTime, function()
 					if enemyChar and enemyHum and enemyHum.Health > 0 then
-						-- Solo restauramos movimiento si el tiempo de stun ACTUAL ya pasó.
-						-- Esto maneja perfectamente si recibió OTRO stun más largo mientras tanto.
 						local pTime = enemyPlayer and (enemyPlayer:GetAttribute("StunnedUntil") or 0) or 0
 						local cTime = enemyChar:GetAttribute("StunnedUntil") or 0
 						local now = workspace:GetServerTimeNow()
 						
-						-- Si "ahora" es mayor que el tiempo de stun del player Y del character
 						if now >= pTime and now >= cTime then
-							enemyHum.WalkSpeed = 16 
-							enemyHum.JumpPower = 50
+							enemyHum.WalkSpeed = 16; enemyHum.JumpPower = 50
 							stunTrack:Stop()
 						end
 					end
@@ -339,4 +381,35 @@ bonkEvent.OnServerEvent:Connect(function(player)
 			end
 		end
 	end)
+end
+
+-------------------------------------------------------------------
+-- CONEXIONES PÚBLICAS (JUGADORES REALES)
+-------------------------------------------------------------------
+
+dashEvent.OnServerEvent:Connect(function(player)
+	DoDash(player, player.Character)
+end)
+
+pushEvent.OnServerEvent:Connect(function(player)
+	DoPush(player, player.Character)
+end)
+
+bonkEvent.OnServerEvent:Connect(function(player)
+	DoBonk(player, player.Character)
+end)
+
+-------------------------------------------------------------------
+-- CONEXIONES PRIVADAS (BOTS)
+-------------------------------------------------------------------
+
+botBridge.Event:Connect(function(botModel, abilityName)
+    -- El botModel actúa como "player" (tiene atributos) y como "character" (tiene Humanoid)
+    if abilityName == "Dash" then
+        DoDash(botModel, botModel)
+    elseif abilityName == "Push" then
+        DoPush(botModel, botModel)
+    elseif abilityName == "Bonk" then
+        DoBonk(botModel, botModel)
+    end
 end)

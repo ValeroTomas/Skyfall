@@ -1,6 +1,8 @@
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
+local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 
@@ -27,12 +29,8 @@ end
 -- EFECTO DE APLASTAMIENTO (CRUSH)
 local function applyCrushEffect(character)
 	local root = character:FindFirstChild("HumanoidRootPart")
-	
-	-- 1. SONIDO CENTRALIZADO
-	-- Reproduce "Squish" en el personaje. El SoundManager maneja la limpieza.
 	SoundManager.Play("Squish", root or character.Head)
 	
-	-- 2. Convertir en "Panqueque"
 	for _, part in pairs(character:GetChildren()) do
 		if part:IsA("BasePart") then
 			part.Anchored = true
@@ -40,7 +38,6 @@ local function applyCrushEffect(character)
 			
 			local oldSize = part.Size
 			local targetSize = Vector3.new(oldSize.X * 1.8, 0.2, oldSize.Z * 1.8)
-			
 			local targetCFrame = part.CFrame * CFrame.new(0, -oldSize.Y / 2, 0)
 			
 			local info = TweenInfo.new(0.15, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
@@ -52,11 +49,12 @@ local function applyCrushEffect(character)
 		end
 	end
 	
-	-- Desaparecer todo después de 3 segundos
 	task.delay(3, function()
-		for _, part in pairs(character:GetChildren()) do
-			if part:IsA("BasePart") then
-				TweenService:Create(part, TweenInfo.new(1), {Transparency = 1}):Play()
+		if character then
+			for _, part in pairs(character:GetChildren()) do
+				if part:IsA("BasePart") then
+					TweenService:Create(part, TweenInfo.new(1), {Transparency = 1}):Play()
+				end
 			end
 		end
 	end)
@@ -96,13 +94,12 @@ local function applyLavaDeath(character)
 			part.CanCollide = true
 			TweenService:Create(part, TweenInfo.new(2), {Color = Color3.new(0, 0, 0)}):Play()
 			task.delay(2, function()
-				TweenService:Create(part, TweenInfo.new(3), {Transparency = 1}):Play()
+				if part then TweenService:Create(part, TweenInfo.new(3), {Transparency = 1}):Play() end
 			end)
 
 			if part.Name:match("Torso") or part.Name == "Head" or part.Name:match("Arm") or part.Name:match("Leg") then
 				applyLowGravity(part)
 				
-				-- PARTICULA DE QUEMADURA (USANDO MANAGER)
 				local p = Instance.new("ParticleEmitter")
 				p.Name = "BurnEffect"
 				p.Texture = DecalManager.Get("BurnTexture") 
@@ -129,9 +126,11 @@ local function applyLavaDeath(character)
 	end)
 end
 
--- CONEXIÓN PRINCIPAL
-local function onCharacterAdded(character)
-	local humanoid = character:WaitForChild("Humanoid")
+-- CONEXIÓN UNIFICADA (Para Players y Bots)
+local function setupRagdoll(character)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if not humanoid then return end
+	
 	humanoid.BreakJointsOnDeath = false 
 
 	humanoid.Died:Connect(function()
@@ -140,11 +139,22 @@ local function onCharacterAdded(character)
 		elseif character:GetAttribute("KilledByLava") then
 			applyLavaDeath(character)
 		else
-			character:BreakJoints()
+			character:BreakJoints() -- Muerte normal (Ragdoll nativo de Roblox)
 		end
 	end)
 end
 
-game.Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(onCharacterAdded)
+-- 1. Conectar Jugadores Reales
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(setupRagdoll)
 end)
+
+-- 2. Conectar Bots (Usando CollectionService)
+CollectionService:GetInstanceAddedSignal("Bot"):Connect(function(botModel)
+	setupRagdoll(botModel)
+end)
+
+-- Inicializar bots ya existentes (si los hubiera al iniciar script)
+for _, bot in ipairs(CollectionService:GetTagged("Bot")) do
+	setupRagdoll(bot)
+end

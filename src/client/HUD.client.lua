@@ -11,7 +11,6 @@ screenGui.Name = "MainGameHUD"
 screenGui.ResetOnSpawn = false
 
 -- CARPETA DE MÓDULOS
--- CORRECCIÓN: Buscamos "HUDModules" dentro del mismo padre que este script (la carpeta Client)
 local modulesFolder = script.Parent:WaitForChild("HUDModules")
 
 -- REQUERIR E INICIAR MÓDULOS
@@ -19,7 +18,8 @@ local Modules = {
 	require(modulesFolder:WaitForChild("HUDCoins")),
 	require(modulesFolder:WaitForChild("HUDTimer")),
 	require(modulesFolder:WaitForChild("HUDAlive")),
-	require(modulesFolder:WaitForChild("HUDCenter"))
+	require(modulesFolder:WaitForChild("HUDCenter")),
+	require(modulesFolder:WaitForChild("HUDSpectator")) -- [NUEVO] ¡Ahora sí funciona!
 }
 
 print("🚀 HUD: Iniciando Módulos...")

@@ -3,14 +3,16 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 
--- EVENTOS (Clientes Reales)
+-- EVENTOS
 local dashEvent = ReplicatedStorage:WaitForChild("DashEvent")
 local pushEvent = ReplicatedStorage:WaitForChild("PushEvent")
 local bonkEvent = ReplicatedStorage:WaitForChild("BonkEvent")
 local roundStartEvent = ReplicatedStorage:WaitForChild("RoundStartEvent")
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
 
--- EVENTO (Feedback de Cooldown)
+-- [NUEVO] Conexión con Patata Caliente
+local forcePotatoPass = ReplicatedStorage:FindFirstChild("ForcePotatoPass") -- Se crea en MapEventManager
+
 local cooldownEvent = ReplicatedStorage:FindFirstChild("CooldownEvent")
 if not cooldownEvent then
 	cooldownEvent = Instance.new("RemoteEvent")
@@ -18,7 +20,6 @@ if not cooldownEvent then
 	cooldownEvent.Parent = ReplicatedStorage
 end
 
--- [NUEVO] PUENTE PARA BOTS
 local botBridge = ReplicatedStorage:FindFirstChild("BotAbilityBridge")
 if not botBridge then
 	botBridge = Instance.new("BindableEvent")
@@ -27,41 +28,29 @@ if not botBridge then
 end
 
 local sharedFolder = ReplicatedStorage:WaitForChild("shared")
--- MANAGERS
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 local DecalManager = require(sharedFolder:WaitForChild("DecalManager")) 
 
--- ASSETS
 local batTemplate = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Bat")
 
--- CONSTANTES BONK
 local ANIM_SWING_ID = "rbxassetid://101758597360192"
 local ANIM_STUN_ID = "rbxassetid://119114608212049"
-
 local SELF_LOCK_TIME = 0.6 
 local BAT_GRIP_OFFSET = CFrame.new(0, -0.2, -1.7) * CFrame.Angles(math.rad(-93), 0, math.rad(0))
 
 local cooldowns = {}
 
--- Sound Folder creation
-local SoundFolder = ReplicatedStorage:FindFirstChild("AbilitySounds") or Instance.new("Folder", ReplicatedStorage)
-SoundFolder.Name = "AbilitySounds"
-
--- HELPERS BÁSICOS
+-- HELPERS
 local function canUseAbility()
 	local rawState = estadoValue.Value
 	local state = string.split(rawState, "|")[1]
 	return state == "SURVIVE"
 end
 
--------------------------------------------------------------------
--- SISTEMA DE STUN POR TIMESTAMP
--------------------------------------------------------------------
 local function applyStun(playerOrBot, duration)
 	if not playerOrBot then return end
 	local now = workspace:GetServerTimeNow()
 	local currentEnd = playerOrBot:GetAttribute("StunnedUntil") or 0
-	
 	if (now + duration) > currentEnd then
 		playerOrBot:SetAttribute("StunnedUntil", now + duration)
 	end
@@ -74,8 +63,6 @@ end
 
 local function isOnCooldown(playerOrBot, abilityName, duration)
 	if not canUseAbility() then return true end
-	
-	-- VALIDACIÓN ROBUSTA CON TIMESTAMP
 	if isStunned(playerOrBot) then return true end
 	
 	if not cooldowns[playerOrBot] then cooldowns[playerOrBot] = {} end
@@ -84,8 +71,6 @@ local function isOnCooldown(playerOrBot, abilityName, duration)
 	
 	if now >= nextUse then
 		cooldowns[playerOrBot][abilityName] = now + duration
-		
-		-- Solo enviamos evento al cliente si es un jugador real
 		if playerOrBot:IsA("Player") then
 			cooldownEvent:FireClient(playerOrBot, abilityName, duration)
 		end
@@ -94,7 +79,6 @@ local function isOnCooldown(playerOrBot, abilityName, duration)
 	return true
 end
 
--- Limpieza de cooldowns
 Players.PlayerRemoving:Connect(function(player) cooldowns[player] = nil end)
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function()
@@ -107,7 +91,6 @@ end)
 roundStartEvent.Event:Connect(function()
 	cooldowns = {} 
 	cooldownEvent:FireAllClients("RESET_ALL", 0)
-	-- Nota: Los bots se limpian solos al ser destruidos por el BotManager
 end)
 
 local function animateArms(character)
@@ -128,18 +111,15 @@ local function animateArms(character)
 	end
 end
 
--- EFECTOS VISUALES
 local function createStunEffect(character, duration)
 	local head = character:FindFirstChild("Head")
 	if not head then return end
-	
 	local ID_STAR = DecalManager.Get("BonkStun")
 	local ID_SMOKE = "rbxassetid://243662261" 
 
 	local stars = Instance.new("ParticleEmitter")
 	stars.Texture = ID_STAR; stars.Size = NumberSequence.new(0.8, 0); stars.Rate = 5
 	stars.Lifetime = NumberRange.new(duration); stars.Parent = head
-	
 	SoundManager.Play("BatHit", head)
 	
 	local smoke = Instance.new("ParticleEmitter")
@@ -147,12 +127,11 @@ local function createStunEffect(character, duration)
 	smoke.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1)})
 	smoke.Lifetime = NumberRange.new(0.4, 0.6); smoke.Rate = 0; smoke.Enabled = false; smoke.Parent = head
 	smoke:Emit(30)
-	
 	Debris:AddItem(stars, duration); Debris:AddItem(smoke, 1.5) 
 end
 
 -------------------------------------------------------------------
--- FUNCIONES CENTRALIZADAS (LÓGICA REAL)
+-- HABILIDADES
 -------------------------------------------------------------------
 
 local function DoDash(playerOrBot, character)
@@ -164,61 +143,27 @@ local function DoDash(playerOrBot, character)
 	if not hrp or character.Humanoid.Health <= 0 then return end
 
 	SoundManager.Play("Dash", hrp)
+	local dashColor = playerOrBot:GetAttribute("DashColor") or Color3.fromRGB(0, 150, 255)
 	
-	-- [NUEVO] EFECTOS VISUALES DE DASH PARA TODOS
-	local dashColor = playerOrBot:GetAttribute("DashColor")
-	if not dashColor then
-		-- Color por defecto para dash: azul brillante
-		dashColor = Color3.fromRGB(0, 150, 255)
-	end
-	
-	-- Crear trail de dash
-	local a0 = Instance.new("Attachment", hrp)
-	local a1 = Instance.new("Attachment", hrp)
-	a0.Position = Vector3.new(0, 2, 0)
-	a1.Position = Vector3.new(0, -2, 0)
-
+	local a0 = Instance.new("Attachment", hrp); a0.Position = Vector3.new(0, 2, 0)
+	local a1 = Instance.new("Attachment", hrp); a1.Position = Vector3.new(0, -2, 0)
 	local dashTrail = Instance.new("Trail")
-	dashTrail.Name = "DashTrail"
-	dashTrail.Attachment0 = a0
-	dashTrail.Attachment1 = a1
-	dashTrail.Color = ColorSequence.new(dashColor)
-	dashTrail.Transparency = NumberSequence.new(0.2, 0.8)
-	dashTrail.Lifetime = 0.3
-	dashTrail.FaceCamera = true
-	dashTrail.LightEmission = 0.8
-	dashTrail.Enabled = true
-	dashTrail.Parent = hrp
+	dashTrail.Name = "DashTrail"; dashTrail.Attachment0 = a0; dashTrail.Attachment1 = a1
+	dashTrail.Color = ColorSequence.new(dashColor); dashTrail.Transparency = NumberSequence.new(0.2, 0.8)
+	dashTrail.Lifetime = 0.3; dashTrail.FaceCamera = true; dashTrail.LightEmission = 0.8; dashTrail.Enabled = true; dashTrail.Parent = hrp
 
-	-- Partículas de dash
 	local particles = Instance.new("ParticleEmitter")
-	particles.Texture = "rbxassetid://243662261"
-	particles.Color = ColorSequence.new(dashColor)
-	particles.Size = NumberSequence.new(1, 3)
-	particles.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1)})
-	particles.Lifetime = NumberRange.new(0.2, 0.4)
-	particles.Rate = 50
-	particles.Speed = NumberRange.new(5, 15)
-	particles.Acceleration = Vector3.new(0, -10, 0)
-	particles.Parent = hrp
-	particles:Emit(20)
+	particles.Texture = "rbxassetid://243662261"; particles.Color = ColorSequence.new(dashColor)
+	particles.Size = NumberSequence.new(1, 3); particles.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1)})
+	particles.Lifetime = NumberRange.new(0.2, 0.4); particles.Rate = 50; particles.Speed = NumberRange.new(5, 15)
+	particles.Acceleration = Vector3.new(0, -10, 0); particles.Parent = hrp; particles:Emit(20)
 
-	-- Limpiar efectos
-	task.delay(1, function()
-		if dashTrail then dashTrail:Destroy() end
-		if a0 then a0:Destroy() end
-		if a1 then a1:Destroy() end
-		if particles then particles:Destroy() end
-	end)
-
-	local wind = Instance.new("ParticleEmitter"); wind.Parent = hrp; wind.Enabled = false
-	Debris:AddItem(wind, 1)
+	task.delay(1, function() if dashTrail then dashTrail:Destroy() end; if a0 then a0:Destroy() end; if a1 then a1:Destroy() end; if particles then particles:Destroy() end end)
 
 	local att = Instance.new("Attachment", hrp)
 	local lv = Instance.new("LinearVelocity", att)
 	lv.MaxForce, lv.Attachment0 = 999999, att
 	lv.VectorVelocity = hrp.CFrame.LookVector * force
-
 	task.wait(0.2)
 	lv:Destroy(); att:Destroy()
 end
@@ -250,21 +195,19 @@ local function DoPush(playerOrBot, character)
 		
 		if enemyRoot and not hitCharacters[enemyChar] then
 			hitCharacters[enemyChar] = true 
-			
-			-- Taggear atacante (si es Player usamos el objeto, si es Bot usamos el Modelo)
 			local tag = enemyChar:FindFirstChild("LastAttacker") or Instance.new("ObjectValue", enemyChar)
-			tag.Name = "LastAttacker"
-			tag.Value = playerOrBot -- Guarda Player o Modelo Bot
-			Debris:AddItem(tag, 10) 
+			tag.Name = "LastAttacker"; tag.Value = playerOrBot; Debris:AddItem(tag, 10) 
 
 			local att = Instance.new("Attachment", enemyRoot)
 			local vel = Instance.new("LinearVelocity", att)
-			vel.MaxForce = 500000 
-			vel.Attachment0 = att
+			vel.MaxForce = 500000; vel.Attachment0 = att
 			local pushDir = (enemyRoot.Position - root.Position).Unit 
 			pushDir = Vector3.new(pushDir.X, 0.3, pushDir.Z).Unit 
 			vel.VectorVelocity = pushDir * pushPower
 			Debris:AddItem(att, 0.25); Debris:AddItem(vel, 0.25)
+			
+			-- [NUEVO] INTENTAR PASAR PATATA
+			if forcePotatoPass then forcePotatoPass:Fire(character, enemyChar) end
 		end
 	end
 end
@@ -281,49 +224,30 @@ local function DoBonk(playerOrBot, character)
 	
 	if not root or not hum or hum.Health <= 0 or not rightHand then return end
 	
-	-- [1] AUTO-LOCK ATACANTE
 	applyStun(playerOrBot, SELF_LOCK_TIME)
 	hum.WalkSpeed = 0; hum.JumpPower = 0
 	
-	-- SPAWN BATE
-	local bat = batTemplate:Clone()
-	bat.Name = "Bat"
-	bat.CanCollide = false; bat.Massless = true
+	local bat = batTemplate:Clone(); bat.Name = "Bat"; bat.CanCollide = false; bat.Massless = true
 	local batColor = playerOrBot:GetAttribute("BonkColor")
-	
-	if typeof(batColor) == "Color3" then
-		for _, p in pairs(bat:GetDescendants()) do if p:IsA("BasePart") then p.Color = batColor end end
-		if bat:IsA("BasePart") then bat.Color = batColor end
-	end
+	if typeof(batColor) == "Color3" then for _, p in pairs(bat:GetDescendants()) do if p:IsA("BasePart") then p.Color = batColor end end; if bat:IsA("BasePart") then bat.Color = batColor end end
+	if playerOrBot:GetAttribute("BonkNeon") == true then if bat:IsA("BasePart") then bat.Material = Enum.Material.Neon end; for _, p in pairs(bat:GetDescendants()) do if p:IsA("BasePart") then p.Material = Enum.Material.Neon end end end
 	
 	bat.Parent = character
-	local weld = Instance.new("Weld")
-	weld.Part0 = rightHand; weld.Part1 = bat; weld.C0 = BAT_GRIP_OFFSET; weld.Parent = bat
+	local weld = Instance.new("Weld"); weld.Part0 = rightHand; weld.Part1 = bat; weld.C0 = BAT_GRIP_OFFSET; weld.Parent = bat
 	Debris:AddItem(bat, 1.5) 
 	
 	SoundManager.Play("BatSwing", root)
-	
 	local animator = hum:FindFirstChild("Animator") or hum:WaitForChild("Animator")
 	local swingAnim = Instance.new("Animation"); swingAnim.AnimationId = ANIM_SWING_ID
-	local swingTrack = animator:LoadAnimation(swingAnim)
-	swingTrack.Priority = Enum.AnimationPriority.Action; swingTrack:Play()
+	local swingTrack = animator:LoadAnimation(swingAnim); swingTrack.Priority = Enum.AnimationPriority.Action; swingTrack:Play()
 	
-	-- TIMER PARA RESTAURAR VELOCIDAD
-	task.delay(SELF_LOCK_TIME, function()
-		if playerOrBot and hum and not isStunned(playerOrBot) then
-			hum.WalkSpeed = 16; hum.JumpPower = 50
-		end
-	end)
+	task.delay(SELF_LOCK_TIME, function() if playerOrBot and hum and not isStunned(playerOrBot) then hum.WalkSpeed = 16; hum.JumpPower = 50 end end)
 	
-	-- HITBOX
 	task.delay(0.3, function() 
 		if not character or not bat or not bat.Parent then return end
-		
 		local hitSize = Vector3.new(6, 6, 8)
 		local hitCFrame = root.CFrame * CFrame.new(0, 0, -4) 
-		local params = OverlapParams.new()
-		params.FilterDescendantsInstances = {character}
-		params.FilterType = Enum.RaycastFilterType.Exclude
+		local params = OverlapParams.new(); params.FilterDescendantsInstances = {character}; params.FilterType = Enum.RaycastFilterType.Exclude
 		local hits = workspace:GetPartBoundsInBox(hitCFrame, hitSize, params)
 		local hitHumanoids = {}
 		
@@ -332,49 +256,37 @@ local function DoBonk(playerOrBot, character)
 			local enemyHum = enemyChar and enemyChar:FindFirstChild("Humanoid")
 			local enemyRoot = enemyChar and enemyChar:FindFirstChild("HumanoidRootPart")
 			local enemyPlayer = Players:GetPlayerFromCharacter(enemyChar) 
-            -- Nota: enemyPlayer será nil si le pegamos a un bot, eso está bien.
 			
 			if enemyHum and enemyHum.Health > 0 and not hitHumanoids[enemyHum] then
 				hitHumanoids[enemyHum] = true
-				
 				createStunEffect(enemyChar, stunTime)
 				local tag = enemyChar:FindFirstChild("LastAttacker") or Instance.new("ObjectValue", enemyChar)
-				tag.Name = "LastAttacker"; tag.Value = playerOrBot
-				Debris:AddItem(tag, 10)
+				tag.Name = "LastAttacker"; tag.Value = playerOrBot; Debris:AddItem(tag, 10)
 				
-				-- [2] STUN VÍCTIMA
 				if enemyPlayer then applyStun(enemyPlayer, stunTime) end
-				-- Backup para NPCs/Bots
 				enemyChar:SetAttribute("StunnedUntil", workspace:GetServerTimeNow() + stunTime) 
 				
-				-- DESARMAR AL ENEMIGO
-				local enemyBat = enemyChar:FindFirstChild("Bat")
-				if enemyBat then enemyBat:Destroy() end
+				local enemyBat = enemyChar:FindFirstChild("Bat"); if enemyBat then enemyBat:Destroy() end
 				
 				enemyHum.WalkSpeed = 0; enemyHum.JumpPower = 0
-				
 				local stunAnim = Instance.new("Animation"); stunAnim.AnimationId = ANIM_STUN_ID
-				local stunTrack = enemyHum.Animator:LoadAnimation(stunAnim)
-				stunTrack.Looped = true
-				stunTrack.Priority = Enum.AnimationPriority.Action4; stunTrack:Play()
+				local stunTrack = enemyHum.Animator:LoadAnimation(stunAnim); stunTrack.Looped = true; stunTrack.Priority = Enum.AnimationPriority.Action4; stunTrack:Play()
 				
 				local att = Instance.new("Attachment", enemyRoot)
 				local lv = Instance.new("LinearVelocity", att)
-				lv.MaxForce = 500000
-				lv.VectorVelocity = (enemyRoot.Position - root.Position).Unit * 20 + Vector3.new(0, 10, 0)
-				lv.Attachment0 = att
+				lv.MaxForce = 500000; lv.VectorVelocity = (enemyRoot.Position - root.Position).Unit * 20 + Vector3.new(0, 10, 0); lv.Attachment0 = att
 				Debris:AddItem(lv, 0.2); Debris:AddItem(att, 0.2)
 
-				-- RESTAURAR VÍCTIMA
+				-- [NUEVO] INTENTAR PASAR PATATA
+				if forcePotatoPass then forcePotatoPass:Fire(character, enemyChar) end
+
 				task.delay(stunTime, function()
 					if enemyChar and enemyHum and enemyHum.Health > 0 then
 						local pTime = enemyPlayer and (enemyPlayer:GetAttribute("StunnedUntil") or 0) or 0
 						local cTime = enemyChar:GetAttribute("StunnedUntil") or 0
 						local now = workspace:GetServerTimeNow()
-						
 						if now >= pTime and now >= cTime then
-							enemyHum.WalkSpeed = 16; enemyHum.JumpPower = 50
-							stunTrack:Stop()
+							enemyHum.WalkSpeed = 16; enemyHum.JumpPower = 50; stunTrack:Stop()
 						end
 					end
 				end)
@@ -383,33 +295,13 @@ local function DoBonk(playerOrBot, character)
 	end)
 end
 
--------------------------------------------------------------------
--- CONEXIONES PÚBLICAS (JUGADORES REALES)
--------------------------------------------------------------------
-
-dashEvent.OnServerEvent:Connect(function(player)
-	DoDash(player, player.Character)
-end)
-
-pushEvent.OnServerEvent:Connect(function(player)
-	DoPush(player, player.Character)
-end)
-
-bonkEvent.OnServerEvent:Connect(function(player)
-	DoBonk(player, player.Character)
-end)
-
--------------------------------------------------------------------
--- CONEXIONES PRIVADAS (BOTS)
--------------------------------------------------------------------
+dashEvent.OnServerEvent:Connect(function(player) DoDash(player, player.Character) end)
+pushEvent.OnServerEvent:Connect(function(player) DoPush(player, player.Character) end)
+bonkEvent.OnServerEvent:Connect(function(player) DoBonk(player, player.Character) end)
 
 botBridge.Event:Connect(function(botModel, abilityName)
-    -- El botModel actúa como "player" (tiene atributos) y como "character" (tiene Humanoid)
-    if abilityName == "Dash" then
-        DoDash(botModel, botModel)
-    elseif abilityName == "Push" then
-        DoPush(botModel, botModel)
-    elseif abilityName == "Bonk" then
-        DoBonk(botModel, botModel)
+    if abilityName == "Dash" then DoDash(botModel, botModel)
+    elseif abilityName == "Push" then DoPush(botModel, botModel)
+    elseif abilityName == "Bonk" then DoBonk(botModel, botModel)
     end
 end)

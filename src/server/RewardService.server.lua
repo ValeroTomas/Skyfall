@@ -4,7 +4,8 @@ local Players = game:GetService("Players")
 
 -- VALORES PÚBLICOS
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
-local inicioValue = ReplicatedStorage:WaitForChild("JugadoresInicio") -- Cantidad inicial de jugadores
+-- [CAMBIO] Usamos el nuevo valor de solo humanos para calcular premios
+local inicioValue = ReplicatedStorage:WaitForChild("HumanosInicio") 
 
 -- EVENTO PARA CLIENTE
 local rewardEvent = ReplicatedStorage:FindFirstChild("RewardEvent")
@@ -31,8 +32,7 @@ local function calculateReward(rank, totalPlayers)
 	-- 1. Determinar Base
 	local base = BASE_REWARDS[rank] or CONSOLATION_PRIZE
 	
-	-- 2. Calcular Multiplicador (10% por cada jugador participante)
-	-- Ejemplo: 10 jugadores -> 1 + (10 * 0.1) = 1 + 1 = x2 Multiplicador
+	-- 2. Calcular Multiplicador (10% por cada jugador HUMANO participante)
 	local multiplier = 1 + (totalPlayers * 0.10)
 	
 	-- 3. Total
@@ -41,26 +41,22 @@ end
 
 local function distributeRewards()
 	local totalPlayers = inicioValue.Value
-	if totalPlayers <= 0 then totalPlayers = 1 end -- Evitar errores si se prueba solo
+	if totalPlayers <= 0 then totalPlayers = 1 end 
 	
-	print("💰 Iniciando reparto de premios. Jugadores base: " .. totalPlayers)
+	print("💰 Iniciando reparto de premios. Jugadores Humanos base: " .. totalPlayers)
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		-- Obtenemos el Rank calculado por DeathHandler/RoundManager
 		local rank = player:GetAttribute("RoundRank")
 		
-		-- Si rank es nil o 0 (bug/recién entrado), asumimos último puesto
 		if not rank or rank == 0 then
-			rank = totalPlayers + 1
+			-- Si no tiene rank, asumimos que quedó último entre los participantes totales
+			-- (No importa mucho porque el premio consuelo es fijo, pero por consistencia)
+			rank = 999 
 		end
 		
-		-- Calcular Monedas
 		local coinsToGive = calculateReward(rank, totalPlayers)
-		
-		-- Calcular Wins (Solo el Top 1 gana la Win)
 		local winsToGive = (rank == 1) and 1 or 0
 		
-		-- APLICAR PREMIOS
 		local currentCoins = getStat:Invoke(player, "Coins") or 0
 		setStat:Fire(player, "Coins", currentCoins + coinsToGive)
 		
@@ -69,7 +65,6 @@ local function distributeRewards()
 			setStat:Fire(player, "Wins", currentWins + winsToGive)
 		end
 		
-		-- AVISAR AL CLIENTE (Sonido + UI)
 		rewardEvent:FireClient(player, coinsToGive)
 		
 		print(string.format("   -> %s (Rank %d) gana %d monedas (Wins: +%d)", player.Name, rank, coinsToGive, winsToGive))
@@ -80,10 +75,8 @@ estadoValue.Changed:Connect(function(val)
 	local data = string.split(val, "|")
 	local state = data[1]
 	
-	-- Repartimos premios cuando la ronda termina (Gane alguien, Empate, o Nadie)
-	-- IMPORTANTE: "NO_ONE" también reparte premios (2do puesto para abajo ganan sus monedas)
 	if state == "WINNER" or state == "TIE" or state == "NO_ONE" then
-		task.wait(1) -- Esperamos un segundo para asegurar que los Ranks se hayan seteado
+		task.wait(1) 
 		distributeRewards()
 	end
 end)

@@ -5,6 +5,9 @@ local TweenService = game:GetService("TweenService")
 
 local SoundManager = {}
 
+-- Tabla para controlar música por canales (1: Fondo, 2: Eventos)
+local activeMusic = {} 
+
 -- 1. BASE DE DATOS DE SONIDOS
 local SOUNDS = {
 	-- UI & HUD
@@ -15,13 +18,19 @@ local SOUNDS = {
 	["Countdown"]         = {Id = "rbxassetid://1837831424",       Vol = 1,   Group = "UI"},
 	["Go"]                = {Id = "rbxassetid://1837829473",       Vol = 1.5, Group = "UI"},
 	["StaminaFull"]       = {Id = "rbxassetid://9114374439",       Vol = 1,   Group = "UI"},
-	["StaminaEmpty"]      = {Id = "rbxassetid://140910216",       Vol = 1,   Group = "UI"},
+	["StaminaEmpty"]      = {Id = "rbxassetid://140910216",        Vol = 1,   Group = "UI"},
+	
+	-- RULETA (UI)
+	["RouletteWin"]       = {Id = "rbxassetid://126557239554258",  Vol = 1,   Group = "UI"},
+	["RouletteTick"]      = {Id = "rbxassetid://116441689318579",  Vol = 0.7, Group = "UI"},
+	["RouletteSpin"]      = {Id = "rbxassetid://9060598839",       Vol = 1,   Group = "UI"}, -- [AGREGADO PARA TRANSICION]
+	["RouletteStop"]      = {Id = "rbxassetid://4612375233",       Vol = 1,   Group = "UI"}, -- [AGREGADO PARA TRANSICION]
 
 	-- TIENDA
 	["BuyUpgrade"]        = {Id = "rbxassetid://5852470908",   Vol = 1,   Group = "UI"},
 	["UnlockSkill"]       = {Id = "rbxassetid://87197772183227",   Vol = 1,   Group = "UI"},
-	["ShopButton"]      = {Id = "rbxassetid://5852470908",         Vol = 0.5, Group = "UI"},
-	["NoMoney"]         = {Id = "rbxassetid://8968249849",   Vol = 0.7, Group = "UI"},
+	["ShopButton"]        = {Id = "rbxassetid://5852470908",         Vol = 0.5, Group = "UI"},
+	["NoMoney"]           = {Id = "rbxassetid://8968249849",   Vol = 0.7, Group = "UI"},
 
 	-- HABILIDADES
 	["Dash"]              = {Id = "rbxassetid://9117879142",       Vol = 0.6, Group = "SFX"},
@@ -34,17 +43,26 @@ local SOUNDS = {
 	["LavaAmbient"]       = {Id = "rbxassetid://318794788",        Vol = 0.3, Group = "SFX", Looped = true},
 	["LavaRock"]          = {Id = "rbxassetid://124807383431117",  Vol = 0.5, Group = "SFX"},
 	["LavaSmash"]         = {Id = "rbxassetid://8275560362",       Vol = 1,   Group = "SFX"},
+	["PotatoBeep"]        = {Id = "rbxassetid://9113880610",       Vol = 1.5, Group = "SFX"},
+	["PotatoExplode"]     = {Id = "rbxassetid://5137964328",       Vol = 2,   Group = "SFX"},
+	["PotatoPass"]        = {Id = "rbxassetid://17481582653",      Vol = 1,   Group = "SFX"},
 	
 	-- IMPACTOS
 	["BlockImpact"]       = {Id = "rbxassetid://8828710739",       Vol = 1.5, Group = "SFX", Min = 50, Max = 500},
+	["IceBlockImpact1"]   = {Id = "rbxassetid://9114857307",       Vol = 1.5, Group = "SFX", Min = 20, Max = 200},
+	["IceBlockImpact2"]   = {Id = "rbxassetid://107467482558699",  Vol = 1.2, Group = "SFX", Min = 20, Max = 200},
 	["BlockBlink"]        = {Id = "rbxassetid://2124207508",       Vol = 0.5, Group = "SFX", Min = 20, Max = 200},
 	["BatSwing"]          = {Id = "rbxassetid://4571259077",       Vol = 3,   Group = "SFX"},
 	["BatHit"]            = {Id = "rbxassetid://5148302439",       Vol = 1.5, Group = "SFX"},
+	["MagmaExplosion"]    = {Id = "rbxassetid://3802269741",       Vol = 2,   Group = "SFX"},
+	["MagmaSpawn1"]       = {Id = "rbxassetid://142431247",       Vol = 4,   Group = "SFX"},
+	["MagmaSpawn2"]       = {Id = "rbxassetid://9066038215",       Vol = 1,   Group = "SFX"},
 
 	-- MÚSICA
 	["WaitingMusic"]      = {Id = "rbxassetid://1835782117",       Vol = 0.5, Group = "Music", Looped = true},
 	["RoundMusic"]        = {Id = "rbxassetid://9044545570",       Vol = 0.5, Group = "Music", Looped = true},
 	["VictoryMusic"]      = {Id = "rbxassetid://1844449787",       Vol = 0.6, Group = "Music", Looped = true},
+	["IceEventStart"]     = {Id = "rbxassetid://15749927835",      Vol = 0.5, Group = "Music"},
 }
 
 -- 2. INICIALIZACIÓN DE GRUPOS Y CACHÉ
@@ -54,7 +72,6 @@ local templateCache = {}
 local function setupGroups()
 	local names = {"SFX", "UI", "Music"}
 	for _, name in ipairs(names) do
-		-- Intentamos buscar primero para no duplicar si el servidor ya lo creó
 		local g = SoundService:FindFirstChild(name)
 		if not g then
 			g = Instance.new("SoundGroup")
@@ -66,10 +83,15 @@ local function setupGroups()
 end
 setupGroups()
 
--- 3. GENERAR INSTANCIAS (Para Pantalla de Carga)
+-- 3. HELPER PARA OBTENER DATOS (Usado por scripts externos si necesitan el ID)
+function SoundManager.Get(name)
+	if SOUNDS[name] then return SOUNDS[name].Id end
+	return nil
+end
+
+-- 4. GENERAR INSTANCIAS (Para Pantalla de Carga)
 function SoundManager.GetAssets()
 	local assetsToLoad = {}
-	
 	for name, data in pairs(SOUNDS) do
 		if not templateCache[name] then
 			local s = Instance.new("Sound")
@@ -78,45 +100,36 @@ function SoundManager.GetAssets()
 			s.Volume = data.Vol
 			s.SoundGroup = groups[data.Group]
 			s.Looped = data.Looped or false
-			
 			if data.Min then s.RollOffMinDistance = data.Min end
 			if data.Max then s.RollOffMaxDistance = data.Max end
-			
 			templateCache[name] = s
 		end
 		table.insert(assetsToLoad, templateCache[name])
 	end
-	
 	return assetsToLoad
 end
 
--- 4. REPRODUCIR
+-- 5. REPRODUCIR SONIDO (SFX)
 function SoundManager.Play(soundName, parent)
 	local template = templateCache[soundName]
 	
-	-- Fallback: Si no está en caché (ej: Primera vez que suena en el Server)
+	-- Fallback si no está en caché
 	if not template then 
 		local data = SOUNDS[soundName]
 		if not data then
-			warn("⚠️ SoundManager: Sonido no existe -> " .. tostring(soundName))
+			-- No lanzamos warn para evitar spam si falta un sonido opcional
 			return nil
 		end
 		
 		local s = Instance.new("Sound")
-		s.Name = soundName
-		s.SoundId = data.Id
-		s.Volume = data.Vol
-		s.SoundGroup = groups[data.Group]
-		s.Looped = data.Looped or false
-		
+		s.Name = soundName; s.SoundId = data.Id; s.Volume = data.Vol
+		s.SoundGroup = groups[data.Group]; s.Looped = data.Looped or false
 		if data.Min then s.RollOffMinDistance = data.Min end
 		if data.Max then s.RollOffMaxDistance = data.Max end
 		
-		template = s
-		templateCache[soundName] = s 
+		template = s; templateCache[soundName] = s 
 	end
 	
-	-- Clonamos para reproducir independientemente
 	local sound = template:Clone()
 	
 	if parent then
@@ -127,11 +140,7 @@ function SoundManager.Play(soundName, parent)
 	
 	sound:Play()
 	
-	-- LIMPIEZA AUTOMÁTICA (DEBRIS)
 	if not sound.Looped then
-		-- CORRECCIÓN CRÍTICA:
-		-- Usamos math.max(..., 5) para dar un margen de seguridad de 5 segundos mínimo.
-		-- Esto evita que si TimeLength es 0 (aún cargando), el sonido se borre instantáneamente.
 		local safeTime = math.max(sound.TimeLength, 5) + 2
 		Debris:AddItem(sound, safeTime)
 	end
@@ -139,36 +148,51 @@ function SoundManager.Play(soundName, parent)
 	return sound
 end
 
--- 5. MÚSICA
-local currentTrack = nil
+-- 6. SISTEMA DE MÚSICA (CORREGIDO CON CANALES)
+-- channel 1: Música de fondo / ronda
+-- channel 2: Música de eventos / victoria (Prioridad)
 
-function SoundManager.PlayMusic(musicName, fadeTime)
+function SoundManager.PlayMusic(musicName, channel, fadeTime)
+	channel = channel or 1
 	fadeTime = fadeTime or 1
 	
-	-- Evitar reinicios si ya suena la misma música
-	if currentTrack and currentTrack.Name == musicName then return end
+	-- Si ya suena lo mismo en este canal, no reiniciamos
+	if activeMusic[channel] and activeMusic[channel].Name == musicName then return end
 	
-	-- Apagar música anterior
-	if currentTrack then
-		local oldTrack = currentTrack
-		currentTrack = nil 
-		local tween = TweenService:Create(oldTrack, TweenInfo.new(fadeTime), {Volume = 0})
-		tween:Play()
-		tween.Completed:Connect(function() oldTrack:Destroy() end)
+	-- Detenemos la música anterior de este canal
+	SoundManager.StopMusic(channel, fadeTime)
+	
+	-- Crear nueva música
+	local newTrack = SoundManager.Play(musicName)
+	if newTrack then
+		newTrack.Name = musicName
+		newTrack.Looped = true
+		newTrack.Parent = SoundService -- Asegurar que esté en un lugar persistente
+		
+		-- Fade In
+		local targetVol = newTrack.Volume
+		newTrack.Volume = 0
+		TweenService:Create(newTrack, TweenInfo.new(fadeTime), {Volume = targetVol}):Play()
+		
+		activeMusic[channel] = newTrack
 	end
+end
+
+-- [NUEVO] FUNCIÓN NECESARIA PARA ROUNDMANAGER
+function SoundManager.StopMusic(channel, fadeTime)
+	channel = channel or 1
+	fadeTime = fadeTime or 0.5
 	
-	-- Iniciar nueva música
-	if musicName then
-		local newTrack = SoundManager.Play(musicName) 
-		if newTrack then
-			newTrack.Name = musicName
-			newTrack.Looped = true -- Forzamos Looped por seguridad
-			
-			local targetVol = newTrack.Volume
-			newTrack.Volume = 0
-			TweenService:Create(newTrack, TweenInfo.new(fadeTime), {Volume = targetVol}):Play()
-			
-			currentTrack = newTrack
+	local oldTrack = activeMusic[channel]
+	if oldTrack then
+		activeMusic[channel] = nil -- Liberar referencia inmediatamente
+		
+		if oldTrack.Parent then
+			local tween = TweenService:Create(oldTrack, TweenInfo.new(fadeTime), {Volume = 0})
+			tween:Play()
+			tween.Completed:Connect(function()
+				oldTrack:Destroy()
+			end)
 		end
 	end
 end

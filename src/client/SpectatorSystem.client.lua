@@ -9,16 +9,19 @@ local camera = workspace.CurrentCamera
 local spectatingIndex = 1
 local isSpectating = false
 
--- EVENTO
+-- EVENTO (Comunicación con el HUD)
 local function fireSpectateEvent(name)
-	local event = ReplicatedStorage:FindFirstChild("SpectateUpdateEvent")
-	if event then
-		if event:IsA("BindableEvent") then event:Fire(name)
-		elseif event:IsA("RemoteEvent") then 
-			local bridge = ReplicatedStorage:FindFirstChild("LocalSpectateBridge")
-			if bridge then bridge:Fire(name) end
-		end
+	-- Usamos un nombre único para evitar conflictos con RemoteEvents
+	local eventName = "SpectateHUDBindable"
+	local event = ReplicatedStorage:FindFirstChild(eventName)
+	
+	if not event then
+		event = Instance.new("BindableEvent")
+		event.Name = eventName
+		event.Parent = ReplicatedStorage
 	end
+	
+	event:Fire(name)
 end
 
 local function getSpectateTargets()
@@ -85,7 +88,7 @@ local function setupCharacter(char)
 	isSpectating = false
 	fireSpectateEvent(nil)
 	
-	-- [CRÍTICO] Forzar la cámara al humanoide inmediatamente
+	-- Forzar la cámara al humanoide inmediatamente
 	camera.CameraType = Enum.CameraType.Custom
 	camera.CameraSubject = humanoid
 	
@@ -114,7 +117,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 end)
 
--- [FIX] VERIFICACIÓN INICIAL (Si el personaje cargó antes que el script)
+-- VERIFICACIÓN INICIAL
 task.spawn(function()
 	if player.Character then
 		setupCharacter(player.Character)

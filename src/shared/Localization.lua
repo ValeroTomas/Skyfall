@@ -1,11 +1,7 @@
 local Localization = {}
 
 local languages = {
-	--------------------------------------------------------------------------------
-	-- ESPAÑOL
-	--------------------------------------------------------------------------------
 	["es"] = {
-		-- HUD / JUEGO
 		["WAITING"] = "ESPERANDO (%s/%s)",
 		["STARTING"] = "INICIANDO EN %s",
 		["SURVIVE"] = "¡SOBREVIVE!",
@@ -17,8 +13,6 @@ local languages = {
 		["COUNTDOWN_GO"] = "¡YA!",
 		["HUD_INVENTORY"] = "INVENTARIO",
 		["HUD_EMPTY"] = "VACÍO",
-		
-		-- LOADING SCREEN
 		["LOADING_ASSETS"] = "CARGANDO RECURSOS...",
 		["LOADING_COMPLETE"] = "¡LISTO!",
 		
@@ -27,29 +21,22 @@ local languages = {
 		["DEATH_CRUSH"] = "☠️ %s fue aplastado por un bloque.",
 		["DEATH_PUSH_LAVA"] = "✋🔥 %s fue empujado por %s a la lava.",
 		["DEATH_PUSH_CRUSH"] = "✋☠️ %s fue empujado por %s debajo de un bloque.",
+		["DEATH_POTATO"] = "🥔 %s tuvo la patata mucho tiempo.", -- [NUEVO]
 		
-		-- Rewards
 		["REWARD_MSG"] = "¡Has ganado %s monedas!",
-		
-		-- Spectator
 		["SPECTATING"] = "Estás mirando a...",
-		
-		-- Death Screen
 		["YOU_DIED"] = "¡HAS MUERTO!",
 		["RANK_INFO"] = "QUEDASTE EN EL PUESTO #%s",
 		["RESPAWN_INFO"] = "VOLVERÁS A APARECER CUANDO COMIENCE LA RONDA",
 
-		-- TIENDA (SHOP)
 		["SHOP_TITLE"] = "TIENDA DE MEJORAS",
 		["COLOR_SELECTOR"] = "SELECCIONA COLOR",
 		["BTN_CONFIRM"] = "CONFIRMAR",
-		
 		["BTN_BUY"] = "COMPRAR",
 		["BTN_UPGRADE"] = "MEJORAR",
 		["BTN_READY"] = "LISTO",
 		["BTN_COLOR"] = "COLOR",
 		["BTN_LOCKED"] = "🔒",
-		
 		["LBL_LOCKED"] = "BLOQUEADO",
 		["LBL_ACQUIRED"] = "ADQUIRIDO",
 		["LBL_CHANGE"] = "CAMBIAR",
@@ -61,11 +48,11 @@ local languages = {
 		["HEADER_PUSH"] = "EMPUJE",
 		["HEADER_DASH"] = "ESQUIVE",
 		["HEADER_STAMINA"] = "STAMINA",
-		
-		-- [NUEVO] BONK ESPAÑOL
 		["HEADER_BONK"] = "BATE",
+		
 		["ITEM_STUN_TIME"] = "DURACIÓN STUN",
 		["ITEM_BONK_COLOR"] = "COLOR BATE",
+		["LBL_SHINY"] = "BATE BRILLANTE",
 		
 		["ITEM_HEIGHT"] = "ALTURA",
 		["ITEM_COST"] = "COSTE STAMINA",
@@ -82,11 +69,7 @@ local languages = {
 		["ITEM_EFFICIENCY"] = "EFICIENCIA"
 	},
 
-	--------------------------------------------------------------------------------
-	-- ENGLISH
-	--------------------------------------------------------------------------------
 	["en"] = {
-		-- HUD / GAME
 		["WAITING"] = "WAITING FOR PLAYERS (%s/%s)",
 		["STARTING"] = "STARTING IN %s",
 		["SURVIVE"] = "SURVIVE!",
@@ -98,39 +81,29 @@ local languages = {
 		["COUNTDOWN_GO"] = "GO!",
 		["HUD_INVENTORY"] = "INVENTORY",
 		["HUD_EMPTY"] = "EMPTY",
-		
-		-- LOADING SCREEN
 		["LOADING_ASSETS"] = "LOADING ASSETS...",
 		["LOADING_COMPLETE"] = "READY!",
 		
-		-- Killfeed
 		["DEATH_LAVA"] = "🔥 %s fell into the lava.",
 		["DEATH_CRUSH"] = "☠️ %s was crushed by a block.",
 		["DEATH_PUSH_LAVA"] = "✋🔥 %s was pushed by %s into the lava.",
 		["DEATH_PUSH_CRUSH"] = "✋☠️ %s was pushed by %s under a block.",
+		["DEATH_POTATO"] = "🥔 %s held the potato too long.", -- [NUEVO]
 		
-		-- Rewards
 		["REWARD_MSG"] = "You won %s coins!",
-		
-		-- Spectator
 		["SPECTATING"] = "Spectating...",
-		
-		-- Death Screen
 		["YOU_DIED"] = "YOU DIED!",
 		["RANK_INFO"] = "YOU PLACED RANK #%s",
 		["RESPAWN_INFO"] = "YOU WILL RESPAWN WHEN THE ROUND STARTS",
 
-		-- SHOP
 		["SHOP_TITLE"] = "UPGRADE SHOP",
 		["COLOR_SELECTOR"] = "COLOR SELECTOR",
 		["BTN_CONFIRM"] = "CONFIRM",
-		
 		["BTN_BUY"] = "BUY",
 		["BTN_UPGRADE"] = "UPGRADE",
 		["BTN_READY"] = "OWNED",
 		["BTN_COLOR"] = "COLOR",
 		["BTN_LOCKED"] = "🔒",
-		
 		["LBL_LOCKED"] = "LOCKED",
 		["LBL_ACQUIRED"] = "ACQUIRED",
 		["LBL_CHANGE"] = "CHANGE",
@@ -142,11 +115,11 @@ local languages = {
 		["HEADER_PUSH"] = "PUSH",
 		["HEADER_DASH"] = "DASH",
 		["HEADER_STAMINA"] = "STAMINA",
-		
-		-- [NUEVO] BONK ENGLISH
 		["HEADER_BONK"] = "BONK BAT",
+		
 		["ITEM_STUN_TIME"] = "STUN DURATION",
 		["ITEM_BONK_COLOR"] = "BAT COLOR",
+		["LBL_SHINY"] = "SHINY BAT",
 		
 		["ITEM_HEIGHT"] = "HEIGHT",
 		["ITEM_COST"] = "STAMINA COST",

@@ -12,9 +12,7 @@ local FontManager = require(sharedFolder:WaitForChild("FontManager"))
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 
 -------------------------------------------------------------------
--- [FIX] SISTEMA DE EVENTOS ROBUSTO
--- Esta función busca el evento, y si no existe, lo crea.
--- Esto evita que el script se congele esperando.
+-- SISTEMA DE EVENTOS
 -------------------------------------------------------------------
 local function getEvent(name)
 	local ev = ReplicatedStorage:FindFirstChild(name)
@@ -191,36 +189,51 @@ abilitySlots = {
 local function updateLoadout()
 	local char = player.Character
 	local hum = char and char:FindFirstChild("Humanoid")
-	if not char or not hum or hum.Health <= 0 then
-		shopSlot:Clear(); backpackSlot:Clear(); logSlot:Clear()
+	local isDead = (not char or not hum or hum.Health <= 0)
+	local state = string.split(estadoValue.Value, "|")[1]
+
+	-- REGLA: Los menús SOLO se muestran si:
+	-- A) Estamos en el Lobby (WAITING/STARTING)
+	-- B) Estamos Muertos
+	local showMenus = false
+	if state == "WAITING" or state == "STARTING" then
+		showMenus = true
+	elseif state == "SURVIVE" then
+		if isDead then showMenus = true else showMenus = false end
+	else
+		-- En TIE/WINNER mostramos menús
+		showMenus = true
+	end
+
+	-- 1. Actualizar Menús
+	if showMenus then
+		backpackSlot:SetAbility("Inventory", PACK_ICON); updateBackgroundGradient(backpackSlot.Frame, "INV")
+		shopSlot:SetAbility("Shop", CART_ICON); updateBackgroundGradient(shopSlot.Frame, "SHOP")
+		logSlot:SetAbility("Changelog", NOTE_ICON); updateBackgroundGradient(logSlot.Frame, "LOG")
+	else
+		backpackSlot:Clear()
+		shopSlot:Clear()
+		logSlot:Clear()
+	end
+
+	-- 2. Actualizar Habilidades (Solo Vivos + Juego)
+	if isDead or state ~= "SURVIVE" then
 		for _, s in ipairs(abilitySlots) do s:Clear() end
 		return
 	end
 
-	local state = string.split(estadoValue.Value, "|")[1]
-	
-	if state == "STARTING" or state == "WAITING" then
-		backpackSlot:SetAbility("Inventory", PACK_ICON); updateBackgroundGradient(backpackSlot.Frame, "INV")
-		shopSlot:SetAbility("Shop", CART_ICON); updateBackgroundGradient(shopSlot.Frame, "SHOP")
-		logSlot:SetAbility("Changelog", NOTE_ICON); updateBackgroundGradient(logSlot.Frame, "LOG")
-		for _, s in ipairs(abilitySlots) do s:Clear() end
-	elseif state == "SURVIVE" then
-		backpackSlot:Clear(); shopSlot:Clear(); logSlot:Clear()
-		local function configSlot(slotObj, abilityName)
-			if not abilityName then slotObj:Clear(); return end
-			local icon = nil
-			if abilityName == "Push" then icon = PUSH_ICON
-			elseif abilityName == "Dash" then icon = DASH_ICON
-			elseif abilityName == "Bonk" then icon = BONK_ICON end
-			if icon then slotObj:SetAbility(abilityName, icon) else slotObj:Clear() end
-		end
-		configSlot(abilitySlots[1], player:GetAttribute("EquippedSlot1"))
-		configSlot(abilitySlots[2], player:GetAttribute("EquippedSlot2"))
-		configSlot(abilitySlots[3], player:GetAttribute("EquippedSlot3"))
-	else
-		shopSlot:Clear(); backpackSlot:Clear(); logSlot:Clear()
-		for _, s in ipairs(abilitySlots) do s:Clear() end
+	-- Cargar habilidades si estoy vivo y jugando
+	local function configSlot(slotObj, abilityName)
+		if not abilityName then slotObj:Clear(); return end
+		local icon = nil
+		if abilityName == "Push" then icon = PUSH_ICON
+		elseif abilityName == "Dash" then icon = DASH_ICON
+		elseif abilityName == "Bonk" then icon = BONK_ICON end
+		if icon then slotObj:SetAbility(abilityName, icon) else slotObj:Clear() end
 	end
+	configSlot(abilitySlots[1], player:GetAttribute("EquippedSlot1"))
+	configSlot(abilitySlots[2], player:GetAttribute("EquippedSlot2"))
+	configSlot(abilitySlots[3], player:GetAttribute("EquippedSlot3"))
 end
 
 estadoValue.Changed:Connect(updateLoadout)
@@ -238,6 +251,12 @@ player.CharacterAdded:Connect(onCharAdded)
 task.spawn(updateLoadout)
 
 local function triggerAbility(abilityName, slotObj)
+	-- Si es habilidad de menú, permitir siempre que sea visible
+	if abilityName == "Shop" then toggleShopEvent:Fire(); return end
+	if abilityName == "Inventory" then toggleInvEvent:Fire(); return end
+	if abilityName == "Changelog" then toggleLogEvent:Fire(); return end
+
+	-- Si es habilidad de combate, chequear estado físico
 	local untilTime = player:GetAttribute("StunnedUntil") or 0
 	if workspace:GetServerTimeNow() < untilTime then return end
 	if slotObj.InCooldown then slotObj:FlashError(); return end
@@ -245,15 +264,6 @@ local function triggerAbility(abilityName, slotObj)
 	if abilityName == "Push" then pushEvent:FireServer()
 	elseif abilityName == "Dash" then dashEvent:FireServer()
 	elseif abilityName == "Bonk" then bonkEvent:FireServer()
-	elseif abilityName == "Shop" then 
-		-- print("Disparando Shop") 
-		toggleShopEvent:Fire()
-	elseif abilityName == "Inventory" then 
-		-- print("Disparando Inv") 
-		toggleInvEvent:Fire()
-	elseif abilityName == "Changelog" then 
-		-- print("Disparando Log") 
-		toggleLogEvent:Fire()
 	end
 	
 	local f = slotObj.Frame
@@ -263,10 +273,13 @@ end
 
 UserInputService.InputBegan:Connect(function(input, proc)
 	if proc then return end
+	
+	-- Menús (Solo si el botón está visible)
 	if backpackSlot.Frame.Visible and input.KeyCode == Enum.KeyCode.Q then triggerAbility("Inventory", backpackSlot) end
 	if shopSlot.Frame.Visible and input.KeyCode == Enum.KeyCode.E then triggerAbility("Shop", shopSlot) end
 	if logSlot.Frame.Visible and input.KeyCode == Enum.KeyCode.N then triggerAbility("Changelog", logSlot) end
 	
+	-- Habilidades
 	if abilitySlots[1].Frame.Visible and input.KeyCode == Enum.KeyCode.One then triggerAbility(abilitySlots[1].AssignedAbility, abilitySlots[1]) end
 	if abilitySlots[2].Frame.Visible and input.KeyCode == Enum.KeyCode.Two then triggerAbility(abilitySlots[2].AssignedAbility, abilitySlots[2]) end
 	if abilitySlots[3].Frame.Visible and input.KeyCode == Enum.KeyCode.Three then triggerAbility(abilitySlots[3].AssignedAbility, abilitySlots[3]) end

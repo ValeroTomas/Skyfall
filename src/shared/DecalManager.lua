@@ -1,3 +1,4 @@
+local AccountService = game:GetService("AccountService")
 local DecalManager = {}
 
 -- DICCIONARIO DE IMÁGENES
@@ -26,6 +27,7 @@ local DECALS = {
 	["BonkStun"] = "rbxassetid://5639840603",
 	["BonkHit"] = "rbxassetid://290833006",
 	["BlockImpact"] = "rbxassetid://4670913469",
+	["IceBlockImpact"] = "rbxassetid://4736354494",
 }
 
 -- Obtener ID

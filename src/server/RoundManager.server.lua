@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
 local PlayerManager = require(script.Parent.PlayerManager) 
 local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 local SoundManager = require(sharedFolder.SoundManager)
@@ -36,12 +37,14 @@ local function ensureValue(name, className)
 	val.Name = name; val.Parent = ReplicatedStorage
 	return val
 end
-local estadoValue = ensureValue("EstadoRonda", "StringValue")
-local vivosValue = ensureValue("JugadoresVivos", "StringValue") 
-local vivosCountValue = ensureValue("JugadoresVivosCount", "IntValue") 
-local inicioValue = ensureValue("JugadoresInicio", "IntValue")        
-local humanosInicioValue = ensureValue("HumanosInicio", "IntValue")   
-local tiempoRestanteValue = ensureValue("TiempoRestante", "IntValue")
+
+local estadoValue = ensureValue("EstadoRonda", "StringValue") :: StringValue
+local vivosValue = ensureValue("JugadoresVivos", "StringValue") :: StringValue
+local vivosCountValue = ensureValue("JugadoresVivosCount", "IntValue") :: IntValue
+local inicioValue = ensureValue("JugadoresInicio", "IntValue") :: IntValue
+-- [CORRECCIÓN] RESTAURAMOS ESTE VALOR PORQUE REWARDSERVICE LO NECESITA
+local humanosInicioValue = ensureValue("HumanosInicio", "IntValue") :: IntValue 
+local tiempoRestanteValue = ensureValue("TiempoRestante", "IntValue") :: IntValue
 
 -- CONFIGURACIÓN
 local MIN_PLAYERS = 2
@@ -55,9 +58,7 @@ local EVENT_POOL = {
 }
 
 local MAP_LIST = {
-	{Id = "LavaPit", Name = "POZO DE LAVA"},
-	{Id = "Classic", Name = "CLÁSICO"},
-	{Id = "Space", Name = "ESPACIO"}
+	{Id = "DefaultMap", Name = "SKYFALL ARENA", Image = "LavaPit"} 
 }
 
 local matchStats = {} 
@@ -105,23 +106,78 @@ local function processMapVoting()
 	return MAP_LIST[1]
 end
 
+local function applyLighting(configFolder)
+	print("💡 Aplicando iluminación del mapa...")
+	for _, child in ipairs(Lighting:GetChildren()) do
+		if child:IsA("Sky") or child:IsA("Atmosphere") or child:IsA("PostEffect") then
+			child:Destroy()
+		end
+	end
+	
+	if not configFolder then
+		Lighting.ClockTime = 14
+		Lighting.Brightness = 2
+		return
+	end
+	
+	for _, effect in ipairs(configFolder:GetChildren()) do
+		effect:Clone().Parent = Lighting
+	end
+	
+	local atts = configFolder:GetAttributes()
+	for key, value in pairs(atts) do
+		pcall(function() Lighting[key] = value end)
+	end
+end
+
+local function loadMap(mapId)
+	print("🗺️ Cargando mapa: " .. mapId)
+	local oldMap = workspace:FindFirstChild("Map")
+	if oldMap then oldMap:Destroy() end
+	
+	local mapsFolder = ServerStorage:FindFirstChild("Maps")
+	local template = mapsFolder and mapsFolder:FindFirstChild(mapId)
+	
+	if template then
+		local newMap = template:Clone()
+		newMap.Name = "Map" 
+		newMap.Parent = workspace
+		
+		local lightingConfig = newMap:FindFirstChild("LightingConfig")
+		applyLighting(lightingConfig)
+	else
+		warn("❌ ERROR CRÍTICO: No se encontró el mapa '" .. mapId .. "'")
+	end
+end
+
 voteEvent.OnServerEvent:Connect(function(player, mapId)
 	currentVotes[player.UserId] = mapId
 end)
 
 -- BUCLE PRINCIPAL
+local nextMapToLoad = MAP_LIST[1].Id 
+
 while true do
+	SoundManager.PlayMusic("WaitingMusic", 1, 1)
+	
+	local mapNameDisplay = "DESCONOCIDO"
+	for _, m in ipairs(MAP_LIST) do
+		if m.Id == nextMapToLoad then mapNameDisplay = m.Name; break end
+	end
+	
+	matchStatusEvent:FireAllClients("LOADING", {MapName = mapNameDisplay})
+	task.wait(2) 
+	
 	_G.LluviaActiva = false
 	mapEventStop:Fire()
 	cleanMapEvent:Fire()
+	loadMap(nextMapToLoad)
 	
-	estadoValue.Value = "WAITING"
-	
-	-- Música de espera (Canal 1), asegurando que el Canal 2 (Victoria) esté mudo
-	SoundManager.StopMusic(2) 
-	SoundManager.PlayMusic("WaitingMusic", 1, 0.5)
+	task.wait(1) 
 	
 	if _G.RespawnAllPlayers then _G.RespawnAllPlayers() end
+	
+	estadoValue.Value = "WAITING"
 	
 	repeat
 		task.wait(1)
@@ -130,72 +186,58 @@ while true do
 		matchStatusEvent:FireAllClients("WAITING", nil) 
 	until count >= MIN_PLAYERS
 	
+	task.wait(3) 
+	
 	resetMatchStats()
 	
 	-- CICLO DE RONDAS
 	for roundNum = 1, MAX_ROUNDS do
-		-- Parar música de victoria de la ronda anterior si la hubiera
-		SoundManager.StopMusic(2)
-		SoundManager.StopMusic(1) -- Parar música de espera o ronda anterior
+		SoundManager.StopMusic(2, 0.1) 
+		SoundManager.PlayMusic("WaitingMusic", 1, 1)
 		
-		-- Limpieza
 		cleanMapEvent:Fire()
 		_G.LluviaActiva = false
 		
-		-- Elegir Evento
 		local nextEventData
 		local eventName = "None"
-		
-		if roundNum == 1 then
-			nextEventData = {Name = "None", Display = "NORMAL"} 
-		else
-			nextEventData = EVENT_POOL[math.random(1, #EVENT_POOL)] 
-		end
+		if roundNum == 1 then nextEventData = {Name = "None", Display = "NORMAL"} 
+		else nextEventData = EVENT_POOL[math.random(1, #EVENT_POOL)] end
 		eventName = nextEventData.Name
 		
-		-- TRANSICIÓN (Cliente muestra Ruleta y Camara)
 		matchStatusEvent:FireAllClients("TRANSITION", {
 			Round = roundNum,
 			TargetEvent = nextEventData.Display,
 			Duration = 6 
 		})
 		
-		task.wait(6.5) -- Esperar a que termine la ruleta
+		task.wait(6.5)
 		
-		-- PREPARACIÓN
 		matchStatusEvent:FireAllClients("PREPARE", nil)
 		if _G.RespawnAllPlayers then _G.RespawnAllPlayers() end
 		
-		-- CUENTA ATRÁS (Sin música aún, solo tensión)
-		for i = 5, 1, -1 do
+		for i = 15, 1, -1 do
 			tiempoRestanteValue.Value = i
 			estadoValue.Value = "STARTING|" .. i
 			if i <= 3 then countdownEvent:FireAllClients(i) end
 			task.wait(1)
 		end
 		
-		-- JUEGO ACTIVO
 		estadoValue.Value = "SURVIVE"
 		_G.LluviaActiva = true
-		
-		-- Iniciar Música de Ronda (Canal 1)
 		SoundManager.PlayMusic("RoundMusic", 1, 0.5)
 		
-		if eventName ~= "None" then
-			print("🎲 EVENTO: " .. eventName)
-			mapEventStart:Fire(eventName)
-		end
+		if eventName ~= "None" then mapEventStart:Fire(eventName) end
 		
 		countdownEvent:FireAllClients("GO")
 		roundStartEvent:Fire()
 		
-		-- Control de Ronda
-		local survivors = PlayerManager.GetAlivePlayers()
-		inicioValue.Value = #survivors
-		vivosCountValue.Value = #survivors
-		
 		local startTime = tick()
 		local roundRunning = true
+		
+		-- [CORRECCIÓN] Actualizar los valores de inicio para RewardService
+		local alive = PlayerManager.GetAlivePlayers()
+		inicioValue.Value = #alive
+		humanosInicioValue.Value = #alive -- Simplificado: cuenta a todos como "humanos" por ahora para evitar errores
 		
 		while roundRunning do
 			local elapsed = tick() - startTime
@@ -212,41 +254,35 @@ while true do
 					local winner = currentSurvivors[1]
 					estadoValue.Value = "WINNER|" .. winner.Name
 					if winner:IsA("Player") then addMatchWin(winner) end
-				else
-					estadoValue.Value = "NO_ONE"
-				end
+				else estadoValue.Value = "NO_ONE" end
 				roundRunning = false
 			elseif elapsed >= ROUND_DURATION then
-				estadoValue.Value = "TIE"
-				roundRunning = false
+				estadoValue.Value = "TIE"; roundRunning = false
 			end
 			task.wait(0.5)
 		end
 		
-		-- FIN DE RONDA
 		mapEventStop:Fire()
 		_G.LluviaActiva = false
-		SoundManager.StopMusic(1) -- Parar música de acción
-		SoundManager.PlayMusic("VictoryMusic", 2, 0.8) -- Tocar victoria
-		task.wait(4)
+		SoundManager.StopMusic(1)
+		SoundManager.PlayMusic("VictoryMusic", 2, 0.8) 
+		
+		task.wait(5)
 	end
 	
-	-- PODIO FINAL
 	SoundManager.StopMusic(1) 
-	-- Mantenemos la música de victoria sonando durante el podio
-	
 	local podiumData = getWinnersPodium()
 	matchStatusEvent:FireAllClients("PODIUM", podiumData)
 	task.wait(8) 
 	
-	-- VOTACIÓN
 	currentVotes = {} 
 	matchStatusEvent:FireAllClients("VOTING", MAP_LIST)
-	
 	local voteDuration = 10
 	for i = voteDuration, 1, -1 do task.wait(1) end
 	
 	local selectedMap = processMapVoting()
 	matchStatusEvent:FireAllClients("MAP_RESULT", selectedMap)
+	nextMapToLoad = selectedMap.Id 
+	
 	task.wait(4)
 end

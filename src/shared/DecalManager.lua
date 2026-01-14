@@ -1,4 +1,3 @@
-local AccountService = game:GetService("AccountService")
 local DecalManager = {}
 
 -- DICCIONARIO DE IMÁGENES
@@ -15,6 +14,9 @@ local DECALS = {
 	["3000Coins"] = "rbxassetid://99365746352443",
 	["6500Coins"] = "rbxassetid://80954468299528",
 	["12000Coins"] = "rbxassetid://117523493159618",
+	
+	-- MAP VOTING
+	["LavaPit"] = "rbxassetid://113357246437539",
 	
 	-- COUNTDOWN (HUDCenter)
 	["Count3"]    = "rbxassetid://82880615630562",

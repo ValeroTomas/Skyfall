@@ -7,12 +7,19 @@ local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 local PlayerManager = require(script.Parent:WaitForChild("PlayerManager"))
 
--- REFERENCIAS AL MAPA
-local mapFolder = workspace:WaitForChild("Map")
-local platform = mapFolder:WaitForChild("Platform")
-local lava = mapFolder:WaitForChild("Lava")
+-- [CORRECCIÓN] REFERENCIAS DINÁMICAS (Ya no usamos WaitForChild al inicio)
+local function getMapResources()
+	local map = workspace:FindFirstChild("Map")
+	if not map then return nil, nil end
+	
+	local platform = map:FindFirstChild("Platform")
+	-- Buscamos Lava O Agua (Soporte para ambos mapas)
+	local hazard = map:FindFirstChild("Lava") or map:FindFirstChild("Water")
+	
+	return platform, hazard
+end
 
--- EVENTOS
+-- EVENTOS (Creamos o buscamos)
 local function getEvent(name, className)
 	className = className or "BindableEvent"
 	if ReplicatedStorage:FindFirstChild(name) then return ReplicatedStorage[name] end
@@ -22,6 +29,7 @@ local function getEvent(name, className)
 	return ev
 end
 
+-- Creamos los eventos INMEDIATAMENTE para no bloquear al RoundManager
 local mapEventStart = getEvent("MapEventStart")
 local mapEventStop = getEvent("MapEventStop")
 local forcePassEvent = getEvent("ForcePotatoPass")
@@ -79,6 +87,9 @@ end
 local function spawnMagmaBall()
 	if not isEventRunning then return end
 	
+	local platform, hazard = getMapResources()
+	if not platform or not hazard then return end -- Si no hay mapa, no hacemos nada
+	
 	-- Puntería inteligente (50% probabilidad)
 	local targetPos
 	local alivePlayers = PlayerManager.GetAlivePlayers()
@@ -105,7 +116,9 @@ local function spawnMagmaBall()
 	-- Origen
 	local angle = math.rad(math.random(0, 360))
 	local dist = 100
-	local spawnPos = Vector3.new(math.sin(angle) * dist, lava.Position.Y + 15, math.cos(angle) * dist)
+	-- Usamos la posición del hazard (lava/agua) como referencia base
+	local hazardY = hazard.Position.Y
+	local spawnPos = Vector3.new(math.sin(angle) * dist, hazardY + 15, math.cos(angle) * dist)
 	
 	local ball = Instance.new("Part")
 	ball.Name = "MagmaBall"
@@ -146,7 +159,8 @@ local function spawnMagmaBall()
 		if touched then return end
 		if tick() - spawnTime < 0.8 then return end
 		
-		if hit.Name == "MagmaBall" or hit.Name == "Lava" or hit.Name == "LandingIndicator" then return end
+		-- Ignorar propios peligros del mapa
+		if hit.Name == "MagmaBall" or hit.Name == "Lava" or hit.Name == "Water" or hit.Name == "LandingIndicator" then return end
 		if hit.Transparency == 1 and hit.Name ~= "SkyfallBlock" then return end 
 		
 		touched = true
@@ -170,10 +184,7 @@ local function spawnMagmaBall()
 		p.Drag = 5; p.Rate = 0; p:Emit(60)
 		Debris:AddItem(splash, 2)
 		
-		-- [AUDIO FIX] Reproducir en el splash que persiste, no en la bola que muere
 		SoundManager.Play("MagmaExplosion", splash)
-		
-		-- Knockback
 		applyMagmaKnockback(ball.Position, 28, 80)
 		
 		ball:Destroy()
@@ -186,7 +197,7 @@ local function startMagmaRain()
 	task.spawn(function()
 		while isEventRunning and currentEvent == "MagmaRain" do
 			spawnMagmaBall()
-			task.wait(2.5) -- [AJUSTE] Cadencia más lenta
+			task.wait(2.5) 
 		end
 	end)
 end

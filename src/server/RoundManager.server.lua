@@ -47,7 +47,7 @@ local humanosInicioValue = ensureValue("HumanosInicio", "IntValue") :: IntValue
 local tiempoRestanteValue = ensureValue("TiempoRestante", "IntValue") :: IntValue
 
 -- CONFIGURACIÓN
-local MIN_PLAYERS = 2
+local MIN_PLAYERS = 1
 local ROUND_DURATION = 120 
 local MAX_ROUNDS = 3 
 
@@ -58,7 +58,8 @@ local EVENT_POOL = {
 }
 
 local MAP_LIST = {
-	{Id = "DefaultMap", Name = "SKYFALL ARENA", Image = "LavaPit"} 
+	{Id = "DefaultMap", Name = "POZO DE LAVA", Image = "LavaPit"}, 
+	{Id = "EndlessPool", Name = "PISCINA SINFIN", Image = "EndlessPool"} 
 }
 
 local matchStats = {} 
@@ -155,7 +156,8 @@ voteEvent.OnServerEvent:Connect(function(player, mapId)
 end)
 
 -- BUCLE PRINCIPAL
-local nextMapToLoad = MAP_LIST[1].Id 
+local nextMapToLoad = MAP_LIST[2].Id 
+loadMap(nextMapToLoad)
 
 while true do
 	SoundManager.PlayMusic("WaitingMusic", 1, 1)

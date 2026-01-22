@@ -47,6 +47,7 @@ local SOUNDS = {
 	["PotatoBeep"]        = {Id = "rbxassetid://9113880610",       Vol = 1.5, Group = "SFX"},
 	["PotatoExplode"]     = {Id = "rbxassetid://5137964328",       Vol = 2,   Group = "SFX"},
 	["PotatoPass"]        = {Id = "rbxassetid://17481582653",      Vol = 1,   Group = "SFX"},
+	["Splash"]            = {Id = "rbxassetid://4909796009",       Vol = 1.5, Group = "SFX"},
 	
 	-- IMPACTOS
 	["BlockImpact"]       = {Id = "rbxassetid://8828710739",       Vol = 1.5, Group = "SFX", Min = 50, Max = 500},

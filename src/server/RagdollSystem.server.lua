@@ -10,8 +10,9 @@ local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 local DecalManager = require(sharedFolder:WaitForChild("DecalManager"))
 
--- FUNCIÓN DE GRAVEDAD BAJA (Para muerte por Lava)
-local function applyLowGravity(part)
+-- FUNCIÓN DE GRAVEDAD BAJA (Para Lava y Agua)
+local function applyLowGravity(part, forceMult)
+	forceMult = forceMult or 0.2 -- Default lava
 	local att = Instance.new("Attachment")
 	att.Name = "GravityAttachment"
 	att.Parent = part
@@ -20,141 +21,113 @@ local function applyLowGravity(part)
 	vf.Name = "GravityForce"
 	vf.Attachment0 = att
 	vf.RelativeTo = Enum.ActuatorRelativeTo.World
-	vf.Force = Vector3.new(0, part.AssemblyMass * workspace.Gravity * 0.2, 0)
+	-- Compensa la gravedad para que floten lento
+	vf.Force = Vector3.new(0, part.AssemblyMass * workspace.Gravity * (1 - forceMult), 0)
 	vf.Parent = part
 
 	return {att, vf}
 end
 
--- EFECTO DE APLASTAMIENTO (CRUSH)
+-- EFECTO CRUSH (Modificado para no destruir el personaje)
 local function applyCrushEffect(character)
 	local root = character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	SoundManager.Play("Squish", root or character.Head)
+	
+	-- Marcar el personaje como "destruido visualmente" para el respawn
+	character:SetAttribute("CrushedEffectApplied", true)
 	
 	for _, part in pairs(character:GetChildren()) do
 		if part:IsA("BasePart") then
-			part.Anchored = true
-			part.CanCollide = false
-			
+			part.Anchored = true; part.CanCollide = false
 			local oldSize = part.Size
 			local targetSize = Vector3.new(oldSize.X * 1.8, 0.2, oldSize.Z * 1.8)
 			local targetCFrame = part.CFrame * CFrame.new(0, -oldSize.Y / 2, 0)
 			
-			local info = TweenInfo.new(0.15, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
-			TweenService:Create(part, info, {
-				Size = targetSize,
-				CFrame = targetCFrame,
-				Transparency = 0.2
+			TweenService:Create(part, TweenInfo.new(0.15, Enum.EasingStyle.Bounce), {
+				Size = targetSize, CFrame = targetCFrame, Transparency = 0.2
 			}):Play()
 		end
 	end
 	
-	task.delay(3, function()
-		if character then
-			for _, part in pairs(character:GetChildren()) do
-				if part:IsA("BasePart") then
-					TweenService:Create(part, TweenInfo.new(1), {Transparency = 1}):Play()
-				end
+	-- NO DESTRUIR el personaje - dejar que el sistema de respawn lo maneje
+	-- En su lugar, marcarlo para limpieza futura
+	task.delay(5, function() 
+		if character and character.Parent then
+			-- Solo limpiar si el jugador ya tiene un nuevo personaje
+			local player = Players:GetPlayerFromCharacter(character)
+			if player and player.Character ~= character then
+				character:Destroy()
+				print("RagdollSystem: Limpiando personaje aplastado antiguo de " .. player.Name)
 			end
 		end
 	end)
 end
 
--- LÓGICA DE MUERTE POR LAVA
+-- EFECTO LAVA (Quema + Flota un poco)
 local function applyLavaDeath(character)
-	local root = character:FindFirstChild("HumanoidRootPart")
-	if root then
-		root.Anchored = true
-		root.Transparency = 1
-		root.CanCollide = false
-	end
-
-	for _, joint in pairs(character:GetDescendants()) do
-		if joint:IsA("Motor6D") then
-			local a1 = Instance.new("Attachment")
-			local a2 = Instance.new("Attachment")
-			a1.Parent = joint.Part0
-			a2.Parent = joint.Part1
-			a1.CFrame = joint.C0
-			a2.CFrame = joint.C1
-
-			local socket = Instance.new("BallSocketConstraint")
-			socket.Attachment0 = a1
-			socket.Attachment1 = a2
-			socket.LimitsEnabled = true
-			socket.TwistLimitsEnabled = true
-			socket.Parent = joint.Parent
-
-			joint:Destroy()
-		end
-	end
-
 	for _, part in pairs(character:GetChildren()) do
-		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-			part.CanCollide = true
-			TweenService:Create(part, TweenInfo.new(2), {Color = Color3.new(0, 0, 0)}):Play()
-			task.delay(2, function()
-				if part then TweenService:Create(part, TweenInfo.new(3), {Transparency = 1}):Play() end
-			end)
-
-			if part.Name:match("Torso") or part.Name == "Head" or part.Name:match("Arm") or part.Name:match("Leg") then
-				applyLowGravity(part)
-				
-				local p = Instance.new("ParticleEmitter")
-				p.Name = "BurnEffect"
-				p.Texture = DecalManager.Get("BurnTexture") 
-				p.Color = ColorSequence.new(Color3.new(0.1, 0.1, 0.1))
-				p.Size = NumberSequence.new(1, 2)
-				p.Rate = 25
-				p.Lifetime = NumberRange.new(1, 2)
-				p.Parent = part 
+		if part:IsA("BasePart") then
+			if part.Name == "HumanoidRootPart" then part.Transparency = 1; part.CanCollide = false end
+			TweenService:Create(part, TweenInfo.new(2), {Color = Color3.new(0, 0, 0)}):Play() -- Negro
+			
+			if part.Name ~= "HumanoidRootPart" then
+				applyLowGravity(part, 0.3) -- Gravedad 30%
+				local p = Instance.new("ParticleEmitter", part)
+				p.Texture = DecalManager.Get("BurnTexture"); p.Color = ColorSequence.new(Color3.new(0.1,0.1,0.1))
+				p.Size = NumberSequence.new(1, 2); p.Rate = 25
 			end
 		end
 	end
-
-	task.delay(4, function()
-		if not character then return end
-		for _, obj in pairs(character:GetDescendants()) do
-			if obj:IsA("BasePart") then
-				obj.Anchored = true
-				local force = obj:FindFirstChild("GravityForce")
-				if force then force:Destroy() end
-			elseif obj:IsA("ParticleEmitter") and obj.Name == "BurnEffect" then
-				obj.Enabled = false
-			end
-		end
-	end)
 end
 
--- CONEXIÓN UNIFICADA (Para Players y Bots)
+-- [NUEVO] EFECTO AGUA (Azul + Flota mucho)
+local function applyWaterDeath(character)
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") then
+			if part.Name == "HumanoidRootPart" then part.Transparency = 1; part.CanCollide = false end
+			
+			-- Cambio de color a Azul Cian suave
+			TweenService:Create(part, TweenInfo.new(1), {Color = Color3.fromRGB(0, 150, 255)}):Play()
+			
+			if part.Name ~= "HumanoidRootPart" then
+				applyLowGravity(part, 0.1) -- Gravedad muy baja (10%), flota mucho
+				
+				-- Burbujas
+				local bubbles = Instance.new("ParticleEmitter", part)
+				bubbles.Texture = "rbxassetid://243662261" -- Burbuja simple
+				bubbles.Size = NumberSequence.new(0.5, 0)
+				bubbles.Transparency = NumberSequence.new(0.2, 1)
+				bubbles.Color = ColorSequence.new(Color3.new(1,1,1))
+				bubbles.Acceleration = Vector3.new(0, 5, 0) -- Suben
+				bubbles.Rate = 10; bubbles.Lifetime = NumberRange.new(1, 2)
+			end
+		end
+	end
+end
+
 local function setupRagdoll(character)
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if not humanoid then return end
-	
 	humanoid.BreakJointsOnDeath = false 
 
 	humanoid.Died:Connect(function()
+		-- Verificar causa de muerte (atributos puestos por MapHazardService)
 		if character:GetAttribute("Crushed") then
 			applyCrushEffect(character)
+			-- NO hacer BreakJoints() aquí para mantener la integridad del personaje
 		elseif character:GetAttribute("KilledByLava") then
+			character:BreakJoints()
 			applyLavaDeath(character)
+		elseif character:GetAttribute("KilledByWater") then
+			character:BreakJoints()
+			applyWaterDeath(character) -- [NUEVO]
 		else
-			character:BreakJoints() -- Muerte normal (Ragdoll nativo de Roblox)
+			character:BreakJoints()
 		end
 	end)
 end
 
--- 1. Conectar Jugadores Reales
-Players.PlayerAdded:Connect(function(player)
-	player.CharacterAdded:Connect(setupRagdoll)
-end)
-
--- 2. Conectar Bots (Usando CollectionService)
-CollectionService:GetInstanceAddedSignal("Bot"):Connect(function(botModel)
-	setupRagdoll(botModel)
-end)
-
--- Inicializar bots ya existentes (si los hubiera al iniciar script)
-for _, bot in ipairs(CollectionService:GetTagged("Bot")) do
-	setupRagdoll(bot)
-end
+Players.PlayerAdded:Connect(function(player) player.CharacterAdded:Connect(setupRagdoll) end)
+CollectionService:GetInstanceAddedSignal("Bot"):Connect(setupRagdoll)
+for _, bot in ipairs(CollectionService:GetTagged("Bot")) do setupRagdoll(bot) end

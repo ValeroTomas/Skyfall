@@ -5,6 +5,91 @@ local Players = game:GetService("Players")
 local PlayerManager = require(script.Parent.PlayerManager)
 local killfeedEvent = ReplicatedStorage:WaitForChild("KillfeedEvent")
 
+-- SISTEMA DE RESPAWN AUTOMÁTICO
+local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
+local respawnQueue = {} -- Cola de jugadores esperando respawn
+local respawnCheckInterval = 1 -- Verificar cada segundo
+
+-- Función para agregar jugador a la cola de respawn
+local function addToRespawnQueue(player, deathType)
+	if not respawnQueue[player] then
+		respawnQueue[player] = {
+			player = player,
+			deathTime = tick(),
+			deathType = deathType or "unknown"
+		}
+		print("DeathHandler: " .. player.Name .. " agregado a cola de respawn (" .. deathType .. ")")
+	end
+end
+
+-- SISTEMA DE RESPAWN AUTOMÁTICO
+local function shouldRespawnPlayer(player, deathEntry)
+	local estado = estadoValue.Value
+	local estadoPartes = string.split(estado, "|")
+	local estadoActual = estadoPartes[1]
+	local tiempoRestante = tonumber(estadoPartes[2]) or 0
+	
+	-- Reglas de spawn según el estado del juego
+	if estadoActual == "WAITING" then
+		return true -- Spawn activo durante WAITING
+	elseif estadoActual == "STARTING" then
+		return true -- Spawn forzado al inicio de STARTING
+	elseif estadoActual == "STARTING" and tiempoRestante <= 3 and tiempoRestante >= 1 then
+		return true -- Spawn forzado entre segundos 3-1 de STARTING
+	else
+		return false -- No hay spawn durante ronda (SURVIVE)
+	end
+end
+
+-- Detectar cambios de estado para respawn masivo
+local lastEstado = ""
+local function onEstadoChanged()
+	local currentEstado = estadoValue.Value
+	if currentEstado ~= lastEstado then
+		local estadoPartes = string.split(currentEstado, "|")
+		local estadoActual = estadoPartes[1]
+		
+		-- Si cambiamos a STARTING, respawnear todos los jugadores muertos
+		if estadoActual == "STARTING" and lastEstado ~= "STARTING" then
+			print("DeathHandler: Cambio a STARTING detectado - respawn masivo activado")
+			if _G.RespawnAllPlayers then
+				_G.RespawnAllPlayers()
+			end
+		end
+		
+		lastEstado = currentEstado
+	end
+end
+
+-- Procesar la cola de respawn
+local function processRespawnQueue()
+	for player, deathEntry in pairs(respawnQueue) do
+		if player and player.Parent then
+			if shouldRespawnPlayer(player, deathEntry) then
+				-- Respawnear al jugador
+				if _G.RespawnAllPlayers then
+					_G.RespawnAllPlayers()
+				end
+				-- Remover de la cola
+				respawnQueue[player] = nil
+				print("DeathHandler: " .. player.Name .. " respawneado")
+			end
+		else
+			-- Jugador se desconectó, remover de la cola
+			respawnQueue[player] = nil
+		end
+	end
+end
+
+-- Iniciar el sistema de verificación de respawn
+task.spawn(function()
+	while true do
+		onEstadoChanged() -- Verificar cambios de estado
+		processRespawnQueue() -- Procesar cola de respawn
+		task.wait(respawnCheckInterval)
+	end
+end)
+
 local function setupDeath(character, playerName, isBot)
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if not humanoid then return end
@@ -55,7 +140,28 @@ local function setupDeath(character, playerName, isBot)
 		end
 		
 		---------------------------------------------------------------
-		-- 3. LIMPIEZA DE BOTS MUERTOS
+		-- 3. SISTEMA DE RESPAWN PARA JUGADORES
+		---------------------------------------------------------------
+		if not isBot then
+			local player = Players:GetPlayerFromCharacter(character)
+			if player then
+				-- Determinar tipo de muerte para el respawn
+				local deathType = "unknown"
+				if character:GetAttribute("Crushed") then
+					deathType = "crushed"
+				elseif character:GetAttribute("KilledByLava") then
+					deathType = "lava"
+				elseif character:GetAttribute("KilledByWater") then
+					deathType = "water"
+				end
+				
+				-- Agregar a la cola de respawn
+				addToRespawnQueue(player, deathType)
+			end
+		end
+		
+		---------------------------------------------------------------
+		-- 4. LIMPIEZA DE BOTS MUERTOS
 		---------------------------------------------------------------
 		if isBot then
 			-- Marcar el bot como muerto inmediatamente

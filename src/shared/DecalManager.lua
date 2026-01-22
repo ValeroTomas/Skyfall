@@ -17,6 +17,7 @@ local DECALS = {
 	
 	-- MAP VOTING
 	["LavaPit"] = "rbxassetid://113357246437539",
+	["EndlessPool"] = "rbxassetid://85486330230135",
 	
 	-- COUNTDOWN (HUDCenter)
 	["Count3"]    = "rbxassetid://82880615630562",

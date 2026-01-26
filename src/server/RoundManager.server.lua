@@ -42,7 +42,6 @@ local estadoValue = ensureValue("EstadoRonda", "StringValue") :: StringValue
 local vivosValue = ensureValue("JugadoresVivos", "StringValue") :: StringValue
 local vivosCountValue = ensureValue("JugadoresVivosCount", "IntValue") :: IntValue
 local inicioValue = ensureValue("JugadoresInicio", "IntValue") :: IntValue
--- [CORRECCIÓN] RESTAURAMOS ESTE VALOR PORQUE REWARDSERVICE LO NECESITA
 local humanosInicioValue = ensureValue("HumanosInicio", "IntValue") :: IntValue 
 local tiempoRestanteValue = ensureValue("TiempoRestante", "IntValue") :: IntValue
 
@@ -51,10 +50,11 @@ local MIN_PLAYERS = 1
 local ROUND_DURATION = 120 
 local MAX_ROUNDS = 3 
 
+-- [MODIFICADO] Usamos KEYS para localización
 local EVENT_POOL = {
-	{Name = "MagmaRain", Display = "LLUVIA DE MAGMA"},
-	{Name = "SlipperyBlocks", Display = "BLOQUES DE HIELO"},
-	{Name = "HotPotato", Display = "PATATA CALIENTE"}
+	{Name = "MagmaRain", Display = "EVENT_MAGMA"},
+	{Name = "SlipperyBlocks", Display = "EVENT_ICE"},
+	{Name = "HotPotato", Display = "EVENT_POTATO"}
 }
 
 local MAP_LIST = {
@@ -202,13 +202,14 @@ while true do
 		
 		local nextEventData
 		local eventName = "None"
-		if roundNum == 1 then nextEventData = {Name = "None", Display = "NORMAL"} 
+		-- [MODIFICADO] Key para Normal
+		if roundNum == 1 then nextEventData = {Name = "None", Display = "EVENT_NORMAL"} 
 		else nextEventData = EVENT_POOL[math.random(1, #EVENT_POOL)] end
 		eventName = nextEventData.Name
 		
 		matchStatusEvent:FireAllClients("TRANSITION", {
 			Round = roundNum,
-			TargetEvent = nextEventData.Display,
+			TargetEvent = nextEventData.Display, -- Envía la KEY (ej: EVENT_MAGMA)
 			Duration = 6 
 		})
 		
@@ -236,10 +237,9 @@ while true do
 		local startTime = tick()
 		local roundRunning = true
 		
-		-- [CORRECCIÓN] Actualizar los valores de inicio para RewardService
 		local alive = PlayerManager.GetAlivePlayers()
 		inicioValue.Value = #alive
-		humanosInicioValue.Value = #alive -- Simplificado: cuenta a todos como "humanos" por ahora para evitar errores
+		humanosInicioValue.Value = #alive 
 		
 		while roundRunning do
 			local elapsed = tick() - startTime

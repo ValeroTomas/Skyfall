@@ -44,6 +44,40 @@ local BONK_ICON = DecalManager.Get("Bonk")
 local CUSTOM_FONT = FontManager.Get("Cartoon")
 
 -------------------------------------------------------------------
+-- CONFIGURACIÓN DE INPUTS (MAPPING)
+-------------------------------------------------------------------
+-- Aquí definimos qué hace cada cosa en cada dispositivo
+local INPUT_MAP = {
+	-- MENÚS
+	Inventory = {
+		Keyboard = {Key = Enum.KeyCode.Q, Label = "Q"},
+		Gamepad  = {Key = Enum.KeyCode.ButtonY, Label = "🔺"} -- Triángulo / Y
+	},
+	Shop = {
+		Keyboard = {Key = Enum.KeyCode.E, Label = "E"},
+		Gamepad  = {Key = Enum.KeyCode.ButtonX, Label = "🟥"} -- Cuadrado / X
+	},
+	Changelog = {
+		Keyboard = {Key = Enum.KeyCode.N, Label = "N"},
+		Gamepad  = {Key = Enum.KeyCode.DPadUp, Label = "⬆️"} -- Flecha Arriba
+	},
+	
+	-- HABILIDADES
+	Slot1 = {
+		Keyboard = {Key = Enum.KeyCode.One, Label = "1"},
+		Gamepad  = {Key = Enum.KeyCode.ButtonL1, Label = "L1"}
+	},
+	Slot2 = {
+		Keyboard = {Key = Enum.KeyCode.Two, Label = "2"},
+		Gamepad  = {Key = Enum.KeyCode.ButtonR1, Label = "R1"}
+	},
+	Slot3 = {
+		Keyboard = {Key = Enum.KeyCode.Three, Label = "3"},
+		Gamepad  = {Key = Enum.KeyCode.ButtonL2, Label = "L2"} -- Gatillo Izq
+	}
+}
+
+-------------------------------------------------------------------
 -- UI SETUP
 -------------------------------------------------------------------
 local screenGui = Instance.new("ScreenGui", playerGui)
@@ -105,12 +139,14 @@ local function updateBackgroundGradient(frame, state)
 	end
 end
 
-local abilitySlots = {} 
+local allSlotsObjects = {} -- Guardamos referencias para actualizar inputs
 
-local function createSlot(id, defaultKey, order, initialState)
-	local frame = Instance.new("Frame", container)
+local function createSlot(id, inputConfigKey, order, initialState)
+	local frame = Instance.new("TextButton", container)
 	frame.Name = id; frame.Size = UDim2.new(0, 65, 0, 65)
 	frame.BackgroundColor3 = Color3.new(1,1,1); frame.LayoutOrder = order; frame.Visible = false 
+	frame.Text = ""; frame.AutoButtonColor = false 
+	
 	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
 	
 	updateBackgroundGradient(frame, initialState)
@@ -123,8 +159,11 @@ local function createSlot(id, defaultKey, order, initialState)
 	
 	local hint = Instance.new("TextLabel", frame)
 	hint.Size = UDim2.new(0, 24, 0, 24); hint.Position = UDim2.new(0.5, 0, 0, -12); hint.AnchorPoint = Vector2.new(0.5, 0.5)
-	hint.BackgroundTransparency = 1; hint.Text = defaultKey; hint.FontFace = CUSTOM_FONT
+	hint.BackgroundTransparency = 1; 
+	hint.Text = INPUT_MAP[inputConfigKey].Keyboard.Label -- Default a PC
+	hint.FontFace = CUSTOM_FONT
 	hint.TextSize = 20; hint.TextColor3 = Color3.new(1,1,1); hint.ZIndex = 10
+	
 	local textGrad = Instance.new("UIGradient", hint)
 	textGrad.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255), Color3.fromRGB(0, 100, 255)); textGrad.Rotation = 90
 	local hStroke = Instance.new("UIStroke", hint); hStroke.Thickness = 1.5; hStroke.Color = Color3.new(0,0,0)
@@ -141,7 +180,7 @@ local function createSlot(id, defaultKey, order, initialState)
 	Instance.new("UIStroke", cdText).Thickness = 2
 	
 	local slotObj = {
-		Frame = frame, Icon = icon, Hint = hint, AssignedAbility = nil, InCooldown = false,
+		Frame = frame, Icon = icon, Hint = hint, AssignedAbility = nil, InCooldown = false, InputKey = inputConfigKey,
 		
 		SetAbility = function(self, abilityName, iconId)
 			self.AssignedAbility = abilityName; self.Icon.Image = iconId; self.Frame.Visible = true
@@ -162,7 +201,7 @@ local function createSlot(id, defaultKey, order, initialState)
 			cdOverlay.Visible = true; cdOverlay.Size = UDim2.new(1, 0, 1, 0)
 			TweenService:Create(cdOverlay, TweenInfo.new(duration, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 0, 0)}):Play()
 			task.spawn(function()
-				for i = duration, 1, -1 do if not self.InCooldown then break end; cdText.Text = i; task.wait(1) end
+				for i = duration, 1, -1 do if not self.InCooldown then break; end; cdText.Text = i; task.wait(1) end
 			end)
 			task.delay(duration, function()
 				if not self.AssignedAbility then return end
@@ -173,56 +212,78 @@ local function createSlot(id, defaultKey, order, initialState)
 			end)
 		end
 	}
+	table.insert(allSlotsObjects, slotObj)
 	return slotObj
 end
 
-local backpackSlot = createSlot("BackpackSlot", "Q", 1, "INV")
-local shopSlot = createSlot("ShopSlot", "E", 2, "SHOP")
-local logSlot = createSlot("LogSlot", "N", 3, "LOG")
+local backpackSlot = createSlot("BackpackSlot", "Inventory", 1, "INV")
+local shopSlot = createSlot("ShopSlot", "Shop", 2, "SHOP")
+local logSlot = createSlot("LogSlot", "Changelog", 3, "LOG")
 
-abilitySlots = {
-	createSlot("Slot1", "1", 4, "READY"),
-	createSlot("Slot2", "2", 5, "READY"),
-	createSlot("Slot3", "3", 6, "READY") 
+local abilitySlots = {
+	createSlot("Slot1", "Slot1", 4, "READY"),
+	createSlot("Slot2", "Slot2", 5, "READY"),
+	createSlot("Slot3", "Slot3", 6, "READY") 
 }
 
+-------------------------------------------------------------------
+-- GESTIÓN DINÁMICA DE DISPOSITIVOS (HINTS)
+-------------------------------------------------------------------
+local function updateInputHints(inputType)
+	for _, slot in ipairs(allSlotsObjects) do
+		local map = INPUT_MAP[slot.InputKey]
+		if not map then continue end
+		
+		if inputType == Enum.UserInputType.Touch then
+			-- En móvil ocultamos las letras
+			slot.Hint.Visible = false
+		elseif inputType.Name:find("Gamepad") then
+			-- En consola mostramos iconos de mando (L1, R1, Triángulo, etc.)
+			slot.Hint.Text = map.Gamepad.Label
+			slot.Hint.Visible = true
+		else
+			-- En PC mostramos teclas (Q, E, 1, etc.)
+			slot.Hint.Text = map.Keyboard.Label
+			slot.Hint.Visible = true
+		end
+	end
+end
+
+-- Detectar cambio de input (Ej: Si conecta un mando o toca la pantalla)
+UserInputService.LastInputTypeChanged:Connect(function(lastInputType)
+	updateInputHints(lastInputType)
+end)
+
+-- Chequeo inicial
+updateInputHints(UserInputService:GetLastInputType())
+
+-------------------------------------------------------------------
+-- LÓGICA DEL HUD (VISIBILIDAD / EQUIPAMIENTO)
+-------------------------------------------------------------------
 local function updateLoadout()
 	local char = player.Character
 	local hum = char and char:FindFirstChild("Humanoid")
 	local isDead = (not char or not hum or hum.Health <= 0)
 	local state = string.split(estadoValue.Value, "|")[1]
 
-	-- REGLA: Los menús SOLO se muestran si:
-	-- A) Estamos en el Lobby (WAITING/STARTING)
-	-- B) Estamos Muertos
 	local showMenus = false
-	if state == "WAITING" or state == "STARTING" then
-		showMenus = true
-	elseif state == "SURVIVE" then
-		if isDead then showMenus = true else showMenus = false end
-	else
-		-- En TIE/WINNER mostramos menús
-		showMenus = true
-	end
+	if state == "WAITING" or state == "STARTING" then showMenus = true
+	elseif state == "SURVIVE" then if isDead then showMenus = true else showMenus = false end
+	else showMenus = true end
 
-	-- 1. Actualizar Menús
 	if showMenus then
 		backpackSlot:SetAbility("Inventory", PACK_ICON); updateBackgroundGradient(backpackSlot.Frame, "INV")
 		shopSlot:SetAbility("Shop", CART_ICON); updateBackgroundGradient(shopSlot.Frame, "SHOP")
 		logSlot:SetAbility("Changelog", NOTE_ICON); updateBackgroundGradient(logSlot.Frame, "LOG")
 	else
-		backpackSlot:Clear()
-		shopSlot:Clear()
-		logSlot:Clear()
+		backpackSlot:Clear(); shopSlot:Clear(); logSlot:Clear()
 	end
 
-	-- 2. Actualizar Habilidades (Solo Vivos + Juego)
 	if isDead or state ~= "SURVIVE" then
 		for _, s in ipairs(abilitySlots) do s:Clear() end
 		return
 	end
 
-	-- Cargar habilidades si estoy vivo y jugando
 	local function configSlot(slotObj, abilityName)
 		if not abilityName then slotObj:Clear(); return end
 		local icon = nil
@@ -251,12 +312,10 @@ player.CharacterAdded:Connect(onCharAdded)
 task.spawn(updateLoadout)
 
 local function triggerAbility(abilityName, slotObj)
-	-- Si es habilidad de menú, permitir siempre que sea visible
 	if abilityName == "Shop" then toggleShopEvent:Fire(); return end
 	if abilityName == "Inventory" then toggleInvEvent:Fire(); return end
 	if abilityName == "Changelog" then toggleLogEvent:Fire(); return end
 
-	-- Si es habilidad de combate, chequear estado físico
 	local untilTime = player:GetAttribute("StunnedUntil") or 0
 	if workspace:GetServerTimeNow() < untilTime then return end
 	if slotObj.InCooldown then slotObj:FlashError(); return end
@@ -271,18 +330,36 @@ local function triggerAbility(abilityName, slotObj)
 	task.delay(0.05, function() TweenService:Create(f, TweenInfo.new(0.05), {Size = UDim2.new(0, 65, 0, 65)}):Play() end)
 end
 
+-------------------------------------------------------------------
+-- CONEXIÓN DE CLICKS (TACTIL / RATÓN)
+-------------------------------------------------------------------
+for _, slot in ipairs(allSlotsObjects) do
+	slot.Frame.MouseButton1Click:Connect(function()
+		if slot.AssignedAbility then triggerAbility(slot.AssignedAbility, slot) end
+	end)
+end
+
+-------------------------------------------------------------------
+-- INPUTS UNIFICADOS (TECLADO + MANDO)
+-------------------------------------------------------------------
 UserInputService.InputBegan:Connect(function(input, proc)
 	if proc then return end
+	local key = input.KeyCode
 	
-	-- Menús (Solo si el botón está visible)
-	if backpackSlot.Frame.Visible and input.KeyCode == Enum.KeyCode.Q then triggerAbility("Inventory", backpackSlot) end
-	if shopSlot.Frame.Visible and input.KeyCode == Enum.KeyCode.E then triggerAbility("Shop", shopSlot) end
-	if logSlot.Frame.Visible and input.KeyCode == Enum.KeyCode.N then triggerAbility("Changelog", logSlot) end
-	
-	-- Habilidades
-	if abilitySlots[1].Frame.Visible and input.KeyCode == Enum.KeyCode.One then triggerAbility(abilitySlots[1].AssignedAbility, abilitySlots[1]) end
-	if abilitySlots[2].Frame.Visible and input.KeyCode == Enum.KeyCode.Two then triggerAbility(abilitySlots[2].AssignedAbility, abilitySlots[2]) end
-	if abilitySlots[3].Frame.Visible and input.KeyCode == Enum.KeyCode.Three then triggerAbility(abilitySlots[3].AssignedAbility, abilitySlots[3]) end
+	-- Recorremos todos los slots para ver si la tecla coincide (Sea teclado o mando)
+	for _, slot in ipairs(allSlotsObjects) do
+		if not slot.Frame.Visible then continue end
+		
+		local config = INPUT_MAP[slot.InputKey]
+		
+		-- Chequear si coincide con Teclado O con Gamepad
+		if key == config.Keyboard.Key or key == config.Gamepad.Key then
+			if slot.AssignedAbility then
+				triggerAbility(slot.AssignedAbility, slot)
+				return -- Consumimos el input para no disparar dos cosas a la vez
+			end
+		end
+	end
 end)
 
 cooldownEvent.OnClientEvent:Connect(function(abilityName, duration)

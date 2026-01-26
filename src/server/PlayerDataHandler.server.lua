@@ -14,11 +14,11 @@ if not equipEvent then
 end
 
 -- CONFIGURACIÓN
-local DATA_VERSION = "BETA1.8" -- [ACTUALIZADO] Versión subida por el nuevo campo
+local DATA_VERSION = "0.9.8" -- [ACTUALIZADO] Versión subida por el nuevo campo
 local MyDataStore = DataStoreService:GetDataStore("PlayerData_" .. DATA_VERSION)
 
 local DefaultData = {
-	Coins = 70000,
+	Coins = 0,
 	Wins = 0,
 	
 	Loadout = {

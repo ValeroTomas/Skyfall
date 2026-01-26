@@ -29,6 +29,9 @@ local toggleLogEvent = ReplicatedStorage:WaitForChild("ToggleChangelogEvent")
 -- Evento Shiny
 local shinyEvent = ReplicatedStorage:WaitForChild("ToggleShinyEvent")
 
+-- Detección Móvil
+local isMobile = UserInputService.TouchEnabled
+
 local GAME_PASS_ID = 1663859003 
 local SHINY_PASS_ID = 1669617297 
 
@@ -115,7 +118,7 @@ local function createStyledButton(parent, text, color1, color2)
 	local label = Instance.new("TextLabel", btn)
 	label.Size = UDim2.new(1,0,1,0); label.BackgroundTransparency = 1
 	label.Text = text; label.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
-	label.TextSize = 22; label.TextColor3 = Color3.new(1,1,1); label.ZIndex = 13
+	label.TextSize = isMobile and 18 or 22; label.TextColor3 = Color3.new(1,1,1); label.ZIndex = 13
 	local tGrad = Instance.new("UIGradient", label)
 	tGrad.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.new(1,1,1)), ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 180))}
 	tGrad.Rotation = 90
@@ -146,6 +149,7 @@ mainBlocker.Modal = true
 -- FRAME PRINCIPAL
 local menuFrame = Instance.new("Frame", screenGui)
 menuFrame.Name = "ShopMenu"
+-- El tamaño se ajusta en toggleMenu
 menuFrame.Size = UDim2.new(0, 750, 0, 550) 
 menuFrame.Position = UDim2.new(0.5, 0, 0.5, 0); menuFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 menuFrame.BackgroundColor3 = Color3.new(1,1,1)
@@ -162,10 +166,10 @@ shield.Size = UDim2.new(1,0,1,0); shield.BackgroundTransparency = 1; shield.Text
 shield.AutoButtonColor = false; shield.ZIndex = 1
 
 local title = Instance.new("TextLabel", menuFrame)
-title.Size = UDim2.new(1, 0, 0, 60); title.BackgroundTransparency = 1
+title.Size = UDim2.new(1, 0, 0, isMobile and 45 or 60); title.BackgroundTransparency = 1
 title.Text = getTxt("SHOP_TITLE")
 title.FontFace = FontManager.Get("Cartoon")
-title.TextSize = 45; title.TextColor3 = Color3.new(1,1,1)
+title.TextSize = isMobile and 35 or 45; title.TextColor3 = Color3.new(1,1,1)
 title.Position = UDim2.new(0,0,0,10); title.ZIndex = 6
 applyGradient(title, Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 170, 0), 90)
 local tStroke = Instance.new("UIStroke", title); tStroke.Thickness = 3; tStroke.Color = Color3.new(0,0,0)
@@ -186,7 +190,7 @@ createDeepStroke(innerFrame, Color3.fromRGB(60, 65, 80), Color3.fromRGB(30, 32, 
 local tabContainer = Instance.new("Frame", menuFrame)
 tabContainer.Name = "Tabs"
 tabContainer.Size = UDim2.new(1, -30, 0, 45) 
-tabContainer.Position = UDim2.new(0.5, 0, 0, 75); tabContainer.AnchorPoint = Vector2.new(0.5, 0)
+tabContainer.Position = UDim2.new(0.5, 0, 0, isMobile and 60 or 75); tabContainer.AnchorPoint = Vector2.new(0.5, 0)
 tabContainer.BackgroundTransparency = 1; tabContainer.ZIndex = 6
 
 local currentTab = "Abilities"
@@ -201,7 +205,7 @@ local function createTabButton(name, text, layoutOrder)
 	btn.BackgroundColor3 = Color3.new(1,1,1)
 	btn.Text = text
 	btn.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
-	btn.TextSize = 18; btn.TextColor3 = Color3.new(1,1,1); btn.ZIndex = 7
+	btn.TextSize = isMobile and 14 or 18; btn.TextColor3 = Color3.new(1,1,1); btn.ZIndex = 7
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 	
 	local txtStroke = Instance.new("UIStroke", btn)
@@ -290,11 +294,16 @@ for name, data in pairs(tabButtons) do
 end
 
 -------------------------------------------------------------------
--- 3. SELECTOR DE COLOR (COMPACTO Y ORDENADO)
+-- 3. SELECTOR DE COLOR (COMPACTO Y ESCALABLE)
 -------------------------------------------------------------------
 local rgbFrame = Instance.new("Frame", screenGui)
 rgbFrame.Name = "RGBSelector"
-rgbFrame.Size = UDim2.new(0, 450, 0, 460) 
+-- [AJUSTE MÓVIL]
+if isMobile then
+	rgbFrame.Size = UDim2.new(0.85, 0, 0.7, 0)
+else
+	rgbFrame.Size = UDim2.new(0, 450, 0, 460)
+end
 rgbFrame.Position = UDim2.new(0.5, 0, 0.5, 0); rgbFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 rgbFrame.BackgroundColor3 = Color3.new(1,1,1)
 rgbFrame.Visible = false; rgbFrame.ZIndex = 25 
@@ -311,7 +320,7 @@ rgbTitle.Size = UDim2.new(1,0,0,50); rgbTitle.BackgroundTransparency = 1
 rgbTitle.Text = getTxt("COLOR_SELECTOR")
 rgbTitle.TextColor3 = Color3.new(1,1,1)
 rgbTitle.FontFace = FontManager.Get("Cartoon")
-rgbTitle.TextSize = 40; rgbTitle.ZIndex = 26
+rgbTitle.TextSize = isMobile and 30 or 40; rgbTitle.ZIndex = 26
 rgbTitle.Position = UDim2.new(0, 0, 0, 10) 
 
 applyGradient(rgbTitle, Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 170, 0), 90)
@@ -319,7 +328,11 @@ local rgbTStroke = Instance.new("UIStroke", rgbTitle); rgbTStroke.Thickness = 3;
 
 -- CONTENEDOR PREVIEW
 local previewContainer = Instance.new("Frame", rgbFrame)
-previewContainer.Size = UDim2.new(0, 100, 0, 100)
+previewContainer.Size = UDim2.new(0.2, 0, 0.2, 0) -- Relativo
+-- Forzar ratio cuadrado
+local aspect = Instance.new("UIAspectRatioConstraint", previewContainer)
+aspect.AspectRatio = 1
+
 previewContainer.Position = UDim2.new(0.5, 0, 0.18, 0); previewContainer.AnchorPoint = Vector2.new(0.5, 0) 
 previewContainer.BackgroundColor3 = Color3.fromRGB(15, 15, 20); previewContainer.ZIndex = 26
 Instance.new("UICorner", previewContainer).CornerRadius = UDim.new(0, 12)
@@ -362,7 +375,9 @@ gridContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
 gridContainer.CanvasSize = UDim2.new(0,0,0,0)
 
 local gridLayout = Instance.new("UIGridLayout", gridContainer)
-gridLayout.CellSize = UDim2.new(0, 36, 0, 36) -- Tamaño compacto
+-- [AJUSTE MÓVIL] Celdas más pequeñas
+local gSize = isMobile and 25 or 36
+gridLayout.CellSize = UDim2.new(0, gSize, 0, gSize)
 gridLayout.CellPadding = UDim2.new(0, 8, 0, 8) 
 gridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
@@ -426,7 +441,7 @@ local function createSelectorButton(parent, text, color1, color2, pos, size)
 	local lbl = Instance.new("TextLabel", btn)
 	lbl.Size = UDim2.new(1,0,1,0); lbl.BackgroundTransparency = 1
 	lbl.Text = text; lbl.FontFace = Font.fromEnum(Enum.Font.GothamBlack)
-	lbl.TextSize = 20; lbl.TextColor3 = Color3.new(1,1,1); lbl.ZIndex = 28
+	lbl.TextSize = isMobile and 16 or 20; lbl.TextColor3 = Color3.new(1,1,1); lbl.ZIndex = 28
 	local str = Instance.new("UIStroke", lbl); str.Thickness = 2; str.Color = Color3.new(0,0,0)
 	return btn
 end
@@ -434,7 +449,7 @@ end
 local confirmColor = createSelectorButton(
 	rgbFrame, getTxt("BTN_CONFIRM"), 
 	Color3.fromRGB(0, 200, 100), Color3.fromRGB(0, 150, 50),
-	UDim2.new(0.5, 0, 0.96, 0), UDim2.new(0, 160, 0, 50)
+	UDim2.new(0.5, 0, 0.96, 0), UDim2.new(0.4, 0, 0.1, 0) -- Relativo
 )
 confirmColor.MouseButton1Click:Connect(function()
 	if currentItemToColor and colorEvent then
@@ -504,7 +519,7 @@ local function renderAbilityRow(config, playerData)
 	nameLab.Text = getTxt(config.NameKey)
 	nameLab.Size = UDim2.new(0.5, 0, 0.4, 0); nameLab.Position = UDim2.new(0, 95, 0, 10)
 	nameLab.BackgroundTransparency = 1; nameLab.TextColor3 = Color3.new(1,1,1)
-	nameLab.FontFace = FontManager.Get("Cartoon"); nameLab.TextSize = 26; nameLab.TextXAlignment = Enum.TextXAlignment.Left; nameLab.ZIndex = 12
+	nameLab.FontFace = FontManager.Get("Cartoon"); nameLab.TextSize = isMobile and 22 or 26; nameLab.TextXAlignment = Enum.TextXAlignment.Left; nameLab.ZIndex = 12
 	addTextStroke(nameLab)
 	
 	if isOwned then
@@ -566,7 +581,7 @@ local function renderUpgradeRow(key, playerData)
 	local lvl = playerData[key] or 1; local max = ShopConfig.MAX_LEVEL
 	local row = Instance.new("Frame"); row.Size = UDim2.new(1, 0, 0, 70); row.BackgroundTransparency = 1; row.ZIndex = 11
 	local title = Instance.new("TextLabel", row); local localeKey = STAT_TO_LOCALE[key] or key 
-	title.Text = getTxt(localeKey); title.Size = UDim2.new(0.3, 0, 1, 0); title.Position = UDim2.new(0, 10, 0, 0); title.BackgroundTransparency = 1; title.TextColor3 = Color3.new(0.9, 0.9, 0.9); title.FontFace = Font.fromEnum(Enum.Font.GothamBold); title.TextSize = 18; title.TextXAlignment = Enum.TextXAlignment.Left; title.ZIndex = 12; addTextStroke(title)
+	title.Text = getTxt(localeKey); title.Size = UDim2.new(0.3, 0, 1, 0); title.Position = UDim2.new(0, 10, 0, 0); title.BackgroundTransparency = 1; title.TextColor3 = Color3.new(0.9, 0.9, 0.9); title.FontFace = Font.fromEnum(Enum.Font.GothamBold); title.TextSize = isMobile and 14 or 18; title.TextXAlignment = Enum.TextXAlignment.Left; title.ZIndex = 12; addTextStroke(title)
 	local barCont = Instance.new("Frame", row); barCont.Size = UDim2.new(0.4, 0, 0.4, 0); barCont.Position = UDim2.new(0.5, 0, 0.5, 0); barCont.AnchorPoint = Vector2.new(0.5, 0.5); barCont.BackgroundTransparency = 1; barCont.ZIndex = 12
 	local blay = Instance.new("UIListLayout", barCont); blay.FillDirection = Enum.FillDirection.Horizontal; blay.Padding = UDim.new(0, 5); blay.HorizontalAlignment = Enum.HorizontalAlignment.Center 
 	for i = 1, max do local sq = Instance.new("Frame", barCont); sq.Size = UDim2.new(0, 20, 1, 0); sq.BackgroundColor3 = Color3.new(1,1,1); sq.ZIndex = 13; Instance.new("UICorner", sq).CornerRadius = UDim.new(0, 4); if i <= lvl then applyGradient(sq, Color3.fromRGB(0, 200, 255), Color3.fromRGB(0, 100, 200), 90) else applyGradient(sq, Color3.fromRGB(60, 60, 60), Color3.fromRGB(40, 40, 40), 90) end end
@@ -610,10 +625,38 @@ local function closeMenu()
 	if not isOpen then return end; isOpen = false; menuFrame.Visible = false; mainBlocker.Visible = false; mainBlocker.BackgroundTransparency = 1; rgbFrame.Visible = false
 	local stateRaw = estadoValue.Value or ""; local state = string.split(stateRaw, "|")[1]; if state == "SURVIVE" then UserInputService.MouseIconEnabled = false end
 end
+
 local function toggleMenu()
-	isOpen = not isOpen; menuFrame.Visible = isOpen; mainBlocker.Visible = isOpen 
-	if isOpen then UserInputService.MouseIconEnabled = true; SoundManager.Play("ShopButton"); TweenService:Create(mainBlocker, TweenInfo.new(0.3), {BackgroundTransparency = 0.4}):Play(); menuFrame.Size = UDim2.new(0, 700, 0, 500); TweenService:Create(menuFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 750, 0, 550)}):Play(); switchTab("Abilities"); refreshAllTabs(); task.spawn(function() while isOpen do refreshAllTabs(); break end end)
-	else mainBlocker.BackgroundTransparency = 1; rgbFrame.Visible = false; screenGui.DisplayOrder = 20; local stateRaw = estadoValue.Value or ""; local state = string.split(stateRaw, "|")[1]; if state == "SURVIVE" then UserInputService.MouseIconEnabled = false end end
+	isOpen = not isOpen
+	menuFrame.Visible = isOpen
+	mainBlocker.Visible = isOpen 
+	
+	if isOpen then 
+		UserInputService.MouseIconEnabled = true
+		SoundManager.Play("ShopButton")
+		TweenService:Create(mainBlocker, TweenInfo.new(0.3), {BackgroundTransparency = 0.4}):Play()
+		
+		-- [MODIFICACIÓN PARA MÓVILES]
+		local startSize, endSize
+		if isMobile then
+			startSize = UDim2.new(0.85, 0, 0.85, 0)
+			endSize = UDim2.new(0.9, 0, 0.9, 0)
+		else
+			startSize = UDim2.new(0, 700, 0, 500)
+			endSize = UDim2.new(0, 750, 0, 550)
+		end
+		
+		menuFrame.Size = startSize
+		TweenService:Create(menuFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = endSize}):Play()
+		
+		switchTab("Abilities")
+		refreshAllTabs()
+		task.spawn(function() while isOpen do refreshAllTabs(); break end end)
+	else 
+		mainBlocker.BackgroundTransparency = 1; rgbFrame.Visible = false; screenGui.DisplayOrder = 20
+		local stateRaw = estadoValue.Value or ""; local state = string.split(stateRaw, "|")[1]
+		if state == "SURVIVE" then UserInputService.MouseIconEnabled = false end 
+	end
 end
 
 mainBlocker.MouseButton1Click:Connect(toggleMenu); toggleShopEvent.Event:Connect(toggleMenu)

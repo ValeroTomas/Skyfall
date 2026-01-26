@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local LocalizationService = game:GetService("LocalizationService") -- [NUEVO]
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -11,12 +12,18 @@ local FontManager = require(sharedFolder:WaitForChild("FontManager"))
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 local ChangelogData = require(sharedFolder:WaitForChild("ChangelogData")) 
 
+-- [NUEVO] DETECCIÓN IDIOMA
+local playerLang = LocalizationService.RobloxLocaleId:sub(1, 2)
+
 -- EVENTOS
 local toggleLogEvent = ReplicatedStorage:WaitForChild("ToggleChangelogEvent")
 local toggleShopEvent = ReplicatedStorage:WaitForChild("ToggleShopEvent")
 local toggleInvEvent = ReplicatedStorage:WaitForChild("ToggleInventoryEvent")
 
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
+
+-- Detección Móvil
+local isMobile = UserInputService.TouchEnabled
 
 -------------------------------------------------------------------
 -- UTILS VISUALES
@@ -81,11 +88,12 @@ shield.Size = UDim2.new(1,0,1,0); shield.BackgroundTransparency = 1; shield.Text
 shield.AutoButtonColor = false; shield.ZIndex = 5
 
 local title = Instance.new("TextLabel", mainFrame)
-title.Text = "NOTAS DEL PARCHE"
+title.Text = (playerLang == "es") and "NOTAS DEL PARCHE" or "PATCH NOTES" -- [MODIFICADO]
 title.Size = UDim2.new(1, 0, 0, 60)
 title.Position = UDim2.new(0, 0, 0, 10)
 title.BackgroundTransparency = 1
-title.FontFace = FontManager.Get("Cartoon"); title.TextSize = 38
+title.FontFace = FontManager.Get("Cartoon")
+title.TextSize = isMobile and 30 or 38
 title.TextColor3 = Color3.fromRGB(255, 255, 255); title.ZIndex = 6
 addTextStroke(title, 2)
 applyGradient(title, Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 150, 0), 90)
@@ -93,7 +101,8 @@ applyGradient(title, Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 150, 0), 9
 -- [NUEVO] CONTENT FRAME (Fondo claro para el texto - Capa 6)
 local contentBg = Instance.new("Frame", mainFrame)
 contentBg.Name = "ContentBackground"
-contentBg.Size = UDim2.new(0.9, 0, 0.82, 0)
+local contentHeight = isMobile and 0.75 or 0.82
+contentBg.Size = UDim2.new(0.9, 0, contentHeight, 0)
 contentBg.Position = UDim2.new(0.5, 0, 1, -20); contentBg.AnchorPoint = Vector2.new(0.5, 1)
 contentBg.BackgroundColor3 = Color3.fromRGB(50, 45, 60) -- Color ligeramente más claro que el fondo
 contentBg.ZIndex = 6
@@ -122,10 +131,11 @@ local textLabel = Instance.new("TextLabel", scroll)
 textLabel.Size = UDim2.new(1, -10, 0, 0) -- Scale 1 para ajustar ancho
 textLabel.Position = UDim2.new(0, 0, 0, 0)
 textLabel.BackgroundTransparency = 1
-textLabel.Text = ChangelogData.GetText()
+-- [MODIFICADO] Solicitamos el texto en el idioma del jugador
+textLabel.Text = ChangelogData.GetText(playerLang)
 textLabel.RichText = true
 textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-textLabel.TextSize = 20
+textLabel.TextSize = isMobile and 16 or 20
 textLabel.FontFace = Font.fromEnum(Enum.Font.GothamMedium)
 textLabel.TextXAlignment = Enum.TextXAlignment.Left
 textLabel.TextYAlignment = Enum.TextYAlignment.Top
@@ -161,8 +171,17 @@ local function toggle()
 		SoundManager.Play("ShopButton") 
 		TweenService:Create(mainBlocker, TweenInfo.new(0.3), {BackgroundTransparency = 0.4}):Play()
 		
-		mainFrame.Size = UDim2.new(0, 450, 0, 550)
-		TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 500, 0, 600)}):Play()
+		local startSize, endSize
+		if isMobile then
+			startSize = UDim2.new(0.8, 0, 0.8, 0)
+			endSize = UDim2.new(0.85, 0, 0.85, 0)
+		else
+			startSize = UDim2.new(0, 450, 0, 550)
+			endSize = UDim2.new(0, 500, 0, 600)
+		end
+		
+		mainFrame.Size = startSize
+		TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = endSize}):Play()
 	else
 		mainBlocker.BackgroundTransparency = 1
 		local stateRaw = estadoValue.Value or ""
@@ -172,6 +191,14 @@ local function toggle()
 		end
 	end
 end
+
+-- [NUEVO] CIERRE CON MANDO (CÍRCULO / B)
+UserInputService.InputBegan:Connect(function(input, proc)
+	if proc then return end
+	if isOpen and input.KeyCode == Enum.KeyCode.ButtonB then
+		toggle()
+	end
+end)
 
 toggleLogEvent.Event:Connect(toggle)
 mainBlocker.MouseButton1Click:Connect(toggle)

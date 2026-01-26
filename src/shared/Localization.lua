@@ -21,7 +21,7 @@ local languages = {
 		["DEATH_CRUSH"] = "☠️ %s fue aplastado por un bloque.",
 		["DEATH_PUSH_LAVA"] = "✋🔥 %s fue empujado por %s a la lava.",
 		["DEATH_PUSH_CRUSH"] = "✋☠️ %s fue empujado por %s debajo de un bloque.",
-		["DEATH_POTATO"] = "🥔 %s tuvo la patata mucho tiempo.", -- [NUEVO]
+		["DEATH_POTATO"] = "🥔 %s tuvo la patata mucho tiempo.",
 		
 		["REWARD_MSG"] = "¡Has ganado %s monedas!",
 		["SPECTATING"] = "Estás mirando a...",
@@ -66,7 +66,14 @@ local languages = {
 		["ITEM_DASH_COLOR"] = "COLOR ESQUIVE",
 		["ITEM_AMOUNT"] = "CANTIDAD",
 		["ITEM_REGEN"] = "RECARGA",
-		["ITEM_EFFICIENCY"] = "EFICIENCIA"
+		["ITEM_EFFICIENCY"] = "EFICIENCIA",
+		
+		-- [NUEVO] EVENTOS RULETA
+		["EVENT_MAGMA"] = "LLUVIA DE MAGMA",
+		["EVENT_ICE"] = "BLOQUES DE HIELO",
+		["EVENT_POTATO"] = "PATATA CALIENTE",
+		["EVENT_NORMAL"] = "NORMAL",
+		["EVENT_GRAVITY"] = "GRAVEDAD CERO"
 	},
 
 	["en"] = {
@@ -88,7 +95,7 @@ local languages = {
 		["DEATH_CRUSH"] = "☠️ %s was crushed by a block.",
 		["DEATH_PUSH_LAVA"] = "✋🔥 %s was pushed by %s into the lava.",
 		["DEATH_PUSH_CRUSH"] = "✋☠️ %s was pushed by %s under a block.",
-		["DEATH_POTATO"] = "🥔 %s held the potato too long.", -- [NUEVO]
+		["DEATH_POTATO"] = "🥔 %s held the potato too long.",
 		
 		["REWARD_MSG"] = "You won %s coins!",
 		["SPECTATING"] = "Spectating...",
@@ -133,7 +140,14 @@ local languages = {
 		["ITEM_DASH_COLOR"] = "DASH COLOR",
 		["ITEM_AMOUNT"] = "AMOUNT",
 		["ITEM_REGEN"] = "REGEN",
-		["ITEM_EFFICIENCY"] = "EFFICIENCY"
+		["ITEM_EFFICIENCY"] = "EFFICIENCY",
+		
+		-- [NUEVO] EVENTOS RULETA
+		["EVENT_MAGMA"] = "MAGMA RAIN",
+		["EVENT_ICE"] = "ICE BLOCKS",
+		["EVENT_POTATO"] = "HOT POTATO",
+		["EVENT_NORMAL"] = "NORMAL",
+		["EVENT_GRAVITY"] = "ZERO GRAVITY"
 	}
 }
 

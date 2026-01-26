@@ -1,21 +1,28 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local HUD_Alive = {}
 
 function HUD_Alive.Init(screenGui, sharedFolder)
 	local Utils = require(script.Parent.HUDUtils)
+	local isMobile = UserInputService.TouchEnabled
 	
 	-- Referencias a valores
 	local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
 	local vivosValue = ReplicatedStorage:WaitForChild("JugadoresVivos") 
-	local inicioValue = ReplicatedStorage:WaitForChild("JugadoresInicio") -- Ahora contiene TOTAL (Bots+Humanos)
+	local inicioValue = ReplicatedStorage:WaitForChild("JugadoresInicio")
+	
+	-- [AJUSTE MÓVIL]
+	local textSize = isMobile and 19 or 22
+	local height = isMobile and 35 or 45
 	
 	-- UI BASE
-	local labelVivos = Utils.CreateLabel("VivosLabel", UDim2.new(0, 100, 0, 45), UDim2.new(1, -25, 0, 10), Vector2.new(1, 0), screenGui)
+	local labelVivos = Utils.CreateLabel("VivosLabel", UDim2.new(0, 100, 0, height), UDim2.new(1, -25, 0, 10), Vector2.new(1, 0), screenGui)
 	labelVivos.AutomaticSize = Enum.AutomaticSize.X
 	labelVivos.Visible = false 
+	labelVivos.TextSize = textSize
 	
 	local pad = Instance.new("UIPadding", labelVivos)
 	pad.PaddingTop = UDim.new(0, 6)
@@ -29,7 +36,6 @@ function HUD_Alive.Init(screenGui, sharedFolder)
 		Color3.fromRGB(0, 60, 20)      
 	)
 
-	-- Función auxiliar para contar bots en el cliente (Para STARTING)
 	local function countBots()
 		local folder = workspace:FindFirstChild("ActiveBots")
 		if folder then return #folder:GetChildren() end
@@ -50,7 +56,7 @@ function HUD_Alive.Init(screenGui, sharedFolder)
 			local humans = #Players:GetPlayers()
 			local bots = countBots()
 			local total = humans + bots
-			local max = Players.MaxPlayers -- [DINÁMICO] Se actualiza solo
+			local max = Players.MaxPlayers
 			
 			labelVivos.Text = string.format("%d / %d", total, max)
 			
@@ -60,18 +66,16 @@ function HUD_Alive.Init(screenGui, sharedFolder)
 			local currentAlive = tonumber(vivosValue.Value) or 0
 			local startedCount = tonumber(inicioValue.Value) or 0
 			
-			-- Ahora startedCount es correcto (Total al inicio), no necesitamos parches
 			labelVivos.Text = string.format("%d / %d", currentAlive, startedCount)
 			
-			local popUp = TweenService:Create(labelVivos, TweenInfo.new(0.1), {TextSize = 26})
+			local popUp = TweenService:Create(labelVivos, TweenInfo.new(0.1), {TextSize = textSize + 4})
 			popUp:Play()
 			popUp.Completed:Connect(function()
-				TweenService:Create(labelVivos, TweenInfo.new(0.1), {TextSize = 22}):Play()
+				TweenService:Create(labelVivos, TweenInfo.new(0.1), {TextSize = textSize}):Play()
 			end)
 		end
 	end
 
-	-- Conexiones
 	estadoValue.Changed:Connect(updateHUD)
 	vivosValue.Changed:Connect(updateHUD)
 	

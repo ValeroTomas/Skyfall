@@ -2,6 +2,7 @@ local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local LocalizationService = game:GetService("LocalizationService")
+local UserInputService = game:GetService("UserInputService")
 
 local HUD_Center = {}
 
@@ -9,12 +10,11 @@ function HUD_Center.Init(screenGui, sharedFolder)
 	local Utils = require(script.Parent.HUDUtils)
 	local Localization = require(sharedFolder:WaitForChild("Localization"))
 	local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
-	
-	-- IMPORTAR DECAL MANAGER
 	local DecalManager = require(sharedFolder:WaitForChild("DecalManager"))
 	
 	local playerLang = LocalizationService.RobloxLocaleId:sub(1, 2)
 	local player = Players.LocalPlayer
+	local isMobile = UserInputService.TouchEnabled
 
 	-- EVENTOS
 	local countdownEvent = ReplicatedStorage:WaitForChild("CountdownEvent")
@@ -22,7 +22,6 @@ function HUD_Center.Init(screenGui, sharedFolder)
 	local killfeedEvent = ReplicatedStorage:WaitForChild("KillfeedEvent")
 	local rewardEvent = ReplicatedStorage:WaitForChild("RewardEvent") 
 
-	-- USAR MANAGER (Sin precarga manual, ya lo hizo LoadingController)
 	local COUNTDOWN_IMAGES = {
 		[3]    = DecalManager.Get("Count3"),
 		[2]    = DecalManager.Get("Count2"),
@@ -58,7 +57,6 @@ function HUD_Center.Init(screenGui, sharedFolder)
 
 	countdownEvent.OnClientEvent:Connect(function(value)
 		if value == "GO" then
-			-- Prioridad al sonido para sincronía
 			SoundManager.Play("Go")
 			local asset = COUNTDOWN_IMAGES["GO"]
 			if asset then playCountdownPop(asset) end
@@ -74,7 +72,11 @@ function HUD_Center.Init(screenGui, sharedFolder)
 	---------------------------------------------------------------------------------
 	local labelAnuncio = Instance.new("TextLabel", screenGui)
 	labelAnuncio.Name = "AnuncioCentral"
-	labelAnuncio.Size = UDim2.new(0.8, 0, 0.2, 0)
+	
+	-- [AJUSTE MÓVIL] Reducimos altura para achicar la letra (TextScaled)
+	local anuncioHeight = isMobile and 0.12 or 0.2
+	
+	labelAnuncio.Size = UDim2.new(0.8, 0, anuncioHeight, 0)
 	labelAnuncio.Position = UDim2.new(0.5, 0, 0.3, 0)
 	labelAnuncio.AnchorPoint = Vector2.new(0.5, 0.5)
 	labelAnuncio.BackgroundTransparency = 1
@@ -118,10 +120,13 @@ function HUD_Center.Init(screenGui, sharedFolder)
 	feedLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right; feedLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 	feedLayout.Padding = UDim.new(0, 4)
 
+	-- [AJUSTE MÓVIL] Fuente más pequeña
+	local feedTextSize = isMobile and 13 or 18
+
 	local function addFeedEntry(text, styleType)
 		local entry = Utils.CreateLabel("Entry", UDim2.new(1, 0, 0, 25), UDim2.new(1, 0, 0, 0), Vector2.new(1,0), feedFrame)
 		entry.Text = text; entry.TextXAlignment = Enum.TextXAlignment.Right
-		entry.Font = Enum.Font.GothamBold; entry.TextSize = 18 
+		entry.Font = Enum.Font.GothamBold; entry.TextSize = feedTextSize 
 		
 		if styleType == "REWARD" then entry.TextColor3 = Color3.fromRGB(0, 255, 100) 
 		elseif styleType == "BLOOM" then entry.TextColor3 = Color3.fromRGB(255, 80, 80) 
@@ -164,24 +169,31 @@ function HUD_Center.Init(screenGui, sharedFolder)
 	deathFrame.Position = UDim2.new(0.5, 0, 0.5, 0); deathFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	deathFrame.BackgroundTransparency = 1; deathFrame.Visible = false
 
+	-- [AJUSTE MÓVIL] Título más chico
+	local titleHeight = isMobile and 60 or 80
+	
 	local deathTitle = Instance.new("TextLabel", deathFrame)
-	deathTitle.Name = "Title"; deathTitle.Size = UDim2.new(1, 0, 0, 80)
+	deathTitle.Name = "Title"; deathTitle.Size = UDim2.new(1, 0, 0, titleHeight)
 	deathTitle.Position = UDim2.new(0, 0, 0, 0); deathTitle.BackgroundTransparency = 1
 	deathTitle.Text = Localization.get("YOU_DIED", playerLang); deathTitle.TextScaled = true
 	Utils.ApplyCartoonStyle(deathTitle, Color3.fromRGB(255, 80, 80), Color3.fromRGB(150, 0, 0)) 
 	local dtStroke = deathTitle:FindFirstChild("UIStroke")
 
+	-- [AJUSTE MÓVIL] Fuentes reducidas
+	local rankSize = isMobile and 22 or 32
+	local infoSize = isMobile and 13 or 18
+
 	local deathRank = Instance.new("TextLabel", deathFrame)
 	deathRank.Name = "Rank"; deathRank.Size = UDim2.new(1, 0, 0, 40)
 	deathRank.Position = UDim2.new(0, 0, 0.4, 0); deathRank.BackgroundTransparency = 1
-	deathRank.Text = "..."; deathRank.TextSize = 32
+	deathRank.Text = "..."; deathRank.TextSize = rankSize
 	Utils.ApplyCartoonStyle(deathRank, Color3.new(1,1,1), Color3.new(0.7,0.7,0.7))
 	local drStroke = deathRank:FindFirstChild("UIStroke")
 
 	local deathInfo = Instance.new("TextLabel", deathFrame)
 	deathInfo.Name = "Info"; deathInfo.Size = UDim2.new(1, 0, 0, 30)
 	deathInfo.Position = UDim2.new(0, 0, 0.6, 0); deathInfo.BackgroundTransparency = 1
-	deathInfo.Text = Localization.get("RESPAWN_INFO", playerLang); deathInfo.TextSize = 18
+	deathInfo.Text = Localization.get("RESPAWN_INFO", playerLang); deathInfo.TextSize = infoSize
 	Utils.ApplyCartoonStyle(deathInfo, Color3.new(0.9,0.9,0.9), Color3.new(0.6,0.6,0.6))
 	deathInfo.Font = Enum.Font.Gotham 
 	local diStroke = deathInfo:FindFirstChild("UIStroke")

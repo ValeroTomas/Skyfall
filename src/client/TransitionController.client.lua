@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local LocalizationService = game:GetService("LocalizationService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -16,6 +17,9 @@ local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 local FontManager = require(sharedFolder:WaitForChild("FontManager"))
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
 local DecalManager = require(sharedFolder:WaitForChild("DecalManager")) 
+local Localization = require(sharedFolder:WaitForChild("Localization"))
+
+local playerLang = LocalizationService.RobloxLocaleId:sub(1, 2)
 
 -- ==============================================================================
 -- CONFIGURACIÓN DE CÁMARA (HARDCODED)
@@ -198,7 +202,7 @@ local function setCinematicCamera(enable)
 end
 
 -- === RULETA MEJORADA (Tick por ítem) ===
-local function spinRoulette(targetText, duration)
+local function spinRoulette(targetKey, duration)
 	rouletteFrame.Visible = true
 	AnimateEntrance(rouletteFrame, 0.2)
 	
@@ -211,20 +215,32 @@ local function spinRoulette(targetText, duration)
 	listLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	
-	local fillers = {"LLUVIA DE MAGMA", "BLOQUES DE HIELO", "PATATA CALIENTE", "NORMAL", "GRAVEDAD CERO", "TODO EXPLOTA"}
+	-- [MODIFICADO] Lista de relleno con KEYS de localización
+	local fillers = {
+		"EVENT_MAGMA", 
+		"EVENT_ICE", 
+		"EVENT_POTATO", 
+		"EVENT_NORMAL", 
+		"EVENT_GRAVITY"
+	}
+	
 	local winnerIndex = 45
 	local itemHeight = 60 -- Altura exacta de cada item
 	local winnerLabel = nil 
 	
 	for i = 1, 55 do
-		local txt = fillers[math.random(1, #fillers)]
-		if i == winnerIndex then txt = targetText end
+		-- Seleccionar clave aleatoria o la ganadora
+		local txtKey = fillers[math.random(1, #fillers)]
+		if i == winnerIndex then txtKey = targetKey end
+		
+		-- [TRADUCCIÓN] Obtener texto real
+		local translatedText = Localization.get(txtKey, playerLang)
 		
 		local label = Instance.new("TextLabel", rouletteStrip)
 		label.LayoutOrder = i
 		label.Size = UDim2.new(1, 0, 0, itemHeight)
 		label.BackgroundTransparency = 1
-		label.Text = txt
+		label.Text = translatedText
 		label.TextColor3 = Color3.fromRGB(240, 240, 245)
 		label.TextSize = 28
 		label.FontFace = FontManager.Get("Cartoon")
@@ -333,6 +349,7 @@ matchStatusEvent.OnClientEvent:Connect(function(status, data)
 	if status == "TRANSITION" then
 		toggleMainHUD(false); mainFrame.Visible = true; podiumFrame.Visible = false; voteFrame.Visible = false
 		roundTitle.Visible = true; roundTitle.Text = "RONDA " .. data.Round; AnimateEntrance(roundTitle, 0)
+		-- [MODIFICADO] Ahora pasamos la KEY del evento
 		setCinematicCamera(true); task.spawn(function() spinRoulette(data.TargetEvent, data.Duration) end)
 		
 	elseif status == "PREPARE" then

@@ -5,6 +5,7 @@ local DECALS = {
 	-- HUD ICONS
 	["Coin"]      = "rbxassetid://99365746352443",
 	["Cart"]      = "rbxassetid://113277509630221",
+	["Settings"]  = "rbxassetid://98298617383726",
 	["Backpack"]  = "rbxassetid://134813133367215",
 	["Notebook"]  = "rbxassetid://80559434743269",
 	["Dash"]      = "rbxassetid://97307955533015",

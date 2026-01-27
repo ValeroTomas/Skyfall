@@ -25,6 +25,7 @@ local colorEvent = ReplicatedStorage:WaitForChild("ColorUpdateEvent", 5)
 local toggleShopEvent = ReplicatedStorage:WaitForChild("ToggleShopEvent")
 local toggleInvEvent = ReplicatedStorage:WaitForChild("ToggleInventoryEvent")
 local toggleLogEvent = ReplicatedStorage:WaitForChild("ToggleChangelogEvent")
+local toggleSetEvent = ReplicatedStorage:WaitForChild("ToggleSettingsEvent")
 
 -- Evento Shiny y VIP
 local shinyEvent = ReplicatedStorage:WaitForChild("ToggleShinyEvent")
@@ -580,7 +581,8 @@ local function toggleMenu()
 end
 
 mainBlocker.MouseButton1Click:Connect(toggleMenu); toggleShopEvent.Event:Connect(toggleMenu)
-toggleInvEvent.Event:Connect(closeMenu); toggleLogEvent.Event:Connect(closeMenu)
+toggleInvEvent.Event:Connect(closeMenu); toggleLogEvent.Event:Connect(closeMenu); toggleSetEvent.Event:Connect(closeMenu);
+
 task.spawn(function() while true do wait(0.5); if isOpen then refreshAllTabs() end end end)
 local function checkGameState() local raw = estadoValue.Value; local state = string.split(raw, "|")[1]; if state == "SURVIVE" then closeMenu() end end
 estadoValue.Changed:Connect(checkGameState)

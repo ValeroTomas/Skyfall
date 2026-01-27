@@ -19,6 +19,7 @@ local playerLang = LocalizationService.RobloxLocaleId:sub(1, 2)
 local toggleLogEvent = ReplicatedStorage:WaitForChild("ToggleChangelogEvent")
 local toggleShopEvent = ReplicatedStorage:WaitForChild("ToggleShopEvent")
 local toggleInvEvent = ReplicatedStorage:WaitForChild("ToggleInventoryEvent")
+local toggleSetEvent = ReplicatedStorage:WaitForChild("ToggleSettingsEvent")
 
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
 
@@ -205,6 +206,7 @@ mainBlocker.MouseButton1Click:Connect(toggle)
 
 toggleShopEvent.Event:Connect(closeMenu)
 toggleInvEvent.Event:Connect(closeMenu)
+toggleSetEvent.Event:Connect(closeMenu)
 
 estadoValue.Changed:Connect(function()
 	local state = string.split(estadoValue.Value, "|")[1]

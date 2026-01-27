@@ -27,6 +27,7 @@ end
 local toggleInvEvent = ReplicatedStorage:WaitForChild("ToggleInventoryEvent")
 local toggleShopEvent = ReplicatedStorage:WaitForChild("ToggleShopEvent")
 local toggleLogEvent = ReplicatedStorage:WaitForChild("ToggleChangelogEvent")
+local toggleSetEvent = ReplicatedStorage:WaitForChild("ToggleSettingsEvent")
 
 local equipEvent = ReplicatedStorage:FindFirstChild("EquipAbilityEvent")
 if not equipEvent then
@@ -354,6 +355,8 @@ mainBlocker.MouseButton1Click:Connect(toggle)
 
 toggleShopEvent.Event:Connect(closeMenu)
 toggleLogEvent.Event:Connect(closeMenu)
+toggleSetEvent.Event:Connect(closeMenu)
+
 
 estadoValue.Changed:Connect(function()
 	local state = string.split(estadoValue.Value, "|")[1]

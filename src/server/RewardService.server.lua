@@ -4,8 +4,7 @@ local Players = game:GetService("Players")
 
 -- VALORES PÚBLICOS
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
--- [CAMBIO] Usamos el nuevo valor de solo humanos para calcular premios
-local inicioValue = ReplicatedStorage:WaitForChild("HumanosInicio") 
+local humanosInicio = ReplicatedStorage:WaitForChild("HumanosInicio") -- Valor limpio (sin bots)
 
 -- EVENTO PARA CLIENTE
 local rewardEvent = ReplicatedStorage:FindFirstChild("RewardEvent")
@@ -28,33 +27,34 @@ local BASE_REWARDS = {
 }
 local CONSOLATION_PRIZE = 10 -- Del 4to para abajo
 
-local function calculateReward(rank, totalPlayers)
+local function calculateReward(rank, humanPlayers)
 	-- 1. Determinar Base
 	local base = BASE_REWARDS[rank] or CONSOLATION_PRIZE
 	
-	-- 2. Calcular Multiplicador (10% por cada jugador HUMANO participante)
-	local multiplier = 1 + (totalPlayers * 0.10)
+	-- 2. Calcular Multiplicador (10% por cada jugador HUMANO)
+	-- Si hay 3 humanos, el multiplicador es 1.3
+	local multiplier = 1 + (humanPlayers * 0.10)
 	
 	-- 3. Total
 	return math.floor(base * multiplier)
 end
 
 local function distributeRewards()
-	local totalPlayers = inicioValue.Value
-	if totalPlayers <= 0 then totalPlayers = 1 end 
+	local humanPlayers = humanosInicio.Value
+	if humanPlayers <= 0 then humanPlayers = 1 end 
 	
-	print("💰 Iniciando reparto de premios. Jugadores Humanos base: " .. totalPlayers)
+	print("💰 Iniciando reparto de premios. Jugadores Reales (Sin Bots): " .. humanPlayers)
 
 	for _, player in ipairs(Players:GetPlayers()) do
+		-- Gracias a la corrección en RoundManager, el ganador ahora SÍ tiene Rank 1
 		local rank = player:GetAttribute("RoundRank")
 		
+		-- Si realmente no tiene rank (Ej: Entró tarde a la partida), le damos el consuelo
 		if not rank or rank == 0 then
-			-- Si no tiene rank, asumimos que quedó último entre los participantes totales
-			-- (No importa mucho porque el premio consuelo es fijo, pero por consistencia)
 			rank = 999 
 		end
 		
-		local coinsToGive = calculateReward(rank, totalPlayers)
+		local coinsToGive = calculateReward(rank, humanPlayers)
 		local winsToGive = (rank == 1) and 1 or 0
 		
 		local currentCoins = getStat:Invoke(player, "Coins") or 0

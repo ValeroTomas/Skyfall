@@ -50,11 +50,10 @@ local MIN_PLAYERS = 1
 local ROUND_DURATION = 120 
 local MAX_ROUNDS = 3 
 
--- [MODIFICADO] Usamos KEYS para localización
 local EVENT_POOL = {
-	{Name = "MagmaRain", Display = "EVENT_MAGMA"},
-	{Name = "SlipperyBlocks", Display = "EVENT_ICE"},
-	{Name = "HotPotato", Display = "EVENT_POTATO"}
+	{Name = "MagmaRain", Display = "LLUVIA DE MAGMA"},
+	{Name = "SlipperyBlocks", Display = "BLOQUES DE HIELO"},
+	{Name = "HotPotato", Display = "PATATA CALIENTE"}
 }
 
 local MAP_LIST = {
@@ -202,25 +201,33 @@ while true do
 		
 		local nextEventData
 		local eventName = "None"
-		-- [MODIFICADO] Key para Normal
-		if roundNum == 1 then nextEventData = {Name = "None", Display = "EVENT_NORMAL"} 
+		if roundNum == 1 then nextEventData = {Name = "None", Display = "NORMAL"} 
 		else nextEventData = EVENT_POOL[math.random(1, #EVENT_POOL)] end
 		eventName = nextEventData.Name
 		
 		matchStatusEvent:FireAllClients("TRANSITION", {
 			Round = roundNum,
-			TargetEvent = nextEventData.Display, -- Envía la KEY (ej: EVENT_MAGMA)
+			TargetEvent = nextEventData.Display,
 			Duration = 6 
 		})
 		
 		task.wait(6.5)
 		
 		matchStatusEvent:FireAllClients("PREPARE", nil)
+		
+		-- [RESPAWN 1] Al iniciar el estado STARTING (Segundo 15)
 		if _G.RespawnAllPlayers then _G.RespawnAllPlayers() end
 		
 		for i = 15, 1, -1 do
 			tiempoRestanteValue.Value = i
 			estadoValue.Value = "STARTING|" .. i
+			
+			-- [RESPAWN 2] Exactamente en el segundo 3 (Por si alguien se cayó durante la espera)
+			if i == 3 and _G.RespawnAllPlayers then
+				print("RoundManager: Forzando respawn final en segundo 3")
+				_G.RespawnAllPlayers()
+			end
+
 			if i <= 3 then countdownEvent:FireAllClients(i) end
 			task.wait(1)
 		end
@@ -239,7 +246,12 @@ while true do
 		
 		local alive = PlayerManager.GetAlivePlayers()
 		inicioValue.Value = #alive
-		humanosInicioValue.Value = #alive 
+		
+		local realHumans = 0
+		for _, p in ipairs(alive) do
+			if typeof(p) == "Instance" and p:IsA("Player") then realHumans += 1 end
+		end
+		humanosInicioValue.Value = realHumans 
 		
 		while roundRunning do
 			local elapsed = tick() - startTime
@@ -255,7 +267,10 @@ while true do
 				if #currentSurvivors == 1 then
 					local winner = currentSurvivors[1]
 					estadoValue.Value = "WINNER|" .. winner.Name
-					if winner:IsA("Player") then addMatchWin(winner) end
+					if typeof(winner) == "Instance" and winner:IsA("Player") then 
+						winner:SetAttribute("RoundRank", 1)
+						addMatchWin(winner) 
+					end
 				else estadoValue.Value = "NO_ONE" end
 				roundRunning = false
 			elseif elapsed >= ROUND_DURATION then

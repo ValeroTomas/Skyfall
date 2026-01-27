@@ -9,7 +9,7 @@ local VipList = require(sharedFolder:WaitForChild("VipList"))
 
 -- IDs
 local COLOR_GAME_PASS_ID = 1663859003 
-local SHINY_GAME_PASS_ID = 1669617297 -- [NUEVO]
+local SHINY_GAME_PASS_ID = 1669617297 
 
 local shopFunction = ReplicatedStorage:FindFirstChild("ShopFunction")
 if not shopFunction then
@@ -18,12 +18,19 @@ if not shopFunction then
 	shopFunction.Parent = ReplicatedStorage
 end
 
--- [NUEVO] Evento para el switch de Shiny
 local shinyEvent = ReplicatedStorage:FindFirstChild("ToggleShinyEvent")
 if not shinyEvent then
 	shinyEvent = Instance.new("RemoteEvent")
 	shinyEvent.Name = "ToggleShinyEvent"
 	shinyEvent.Parent = ReplicatedStorage
+end
+
+-- [NUEVO] Evento para monedas VIP
+local vipCoinEvent = ReplicatedStorage:FindFirstChild("GiveVipCoinsEvent")
+if not vipCoinEvent then
+	vipCoinEvent = Instance.new("RemoteEvent")
+	vipCoinEvent.Name = "GiveVipCoinsEvent"
+	vipCoinEvent.Parent = ReplicatedStorage
 end
 
 local eventsFolder = ServerStorage:WaitForChild("PlayerDataEvents")
@@ -46,7 +53,6 @@ function shopFunction.OnServerInvoke(player, action, upgradeName)
 		local price = 0
 		local currentLevel = upgrades[upgradeName]
 		
-		-- Validaciones
 		if (upgradeName:match("Push") and upgradeName ~= "PushUnlock") and upgrades.PushUnlock ~= true then return false, "Locked" end
 		if (upgradeName:match("Dash") and upgradeName ~= "DashUnlock") and upgrades.DashUnlock ~= true then return false, "Locked" end
 		if (upgradeName:match("Bonk") and upgradeName ~= "BonkUnlock") and upgrades.BonkUnlock ~= true then return false, "Locked" end
@@ -110,19 +116,14 @@ colorEvent.OnServerEvent:Connect(function(player, itemType, r, g, b)
 	end
 end)
 
--- 3. [NUEVO] TOGGLE BATE BRILLANTE
+-- 3. TOGGLE BATE BRILLANTE
 shinyEvent.OnServerEvent:Connect(function(player)
-	-- Validación de Acceso
 	local hasAccess = false
 	if VipList.IsVip(player.UserId) then hasAccess = true
 	else pcall(function() hasAccess = MarketplaceService:UserOwnsGamePassAsync(player.UserId, SHINY_GAME_PASS_ID) end) end
 	
-	if not hasAccess then 
-		warn(player.Name .. " intentó activar Shiny Bat sin permiso.")
-		return 
-	end
+	if not hasAccess then return end
 	
-	-- Toggle
 	local current = getStat:Invoke(player, "Upgrades", "BonkNeon")
 	local newState = not current
 	
@@ -131,10 +132,29 @@ shinyEvent.OnServerEvent:Connect(function(player)
 	if player.Character then
 		player:SetAttribute("BonkNeon", newState)
 	end
-	print(player.Name .. " cambió Bate Brillante a: " .. tostring(newState))
 end)
 
--- 4. PROCESS RECEIPT
+-- 4. [NUEVO] RECLAMO DE MONEDAS VIP (BYPASS)
+vipCoinEvent.OnServerEvent:Connect(function(player, productId)
+	-- Seguridad crítica: Verificar de nuevo en el servidor
+	if not VipList.IsVip(player.UserId) then
+		warn(player.Name .. " intentó usar el bypass VIP de monedas sin permiso.")
+		return
+	end
+	
+	local amountToGive = PRODUCT_MAP[productId]
+	if amountToGive then
+		local currentCoins = getStat:Invoke(player, "Coins") or 0
+		setStat:Fire(player, "Coins", currentCoins + amountToGive)
+		
+		local rewardEvent = ReplicatedStorage:FindFirstChild("RewardEvent")
+		if rewardEvent then rewardEvent:FireClient(player, amountToGive) end
+		
+		print("👑 " .. player.Name .. " (VIP) reclamó " .. amountToGive .. " monedas.")
+	end
+end)
+
+-- 5. PROCESS RECEIPT (COMPRA NORMAL DE ROBUX)
 MarketplaceService.ProcessReceipt = function(receiptInfo)
 	local playerId = receiptInfo.PlayerId
 	local productId = receiptInfo.ProductId

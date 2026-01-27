@@ -73,7 +73,13 @@ local languages = {
 		["EVENT_ICE"] = "BLOQUES DE HIELO",
 		["EVENT_POTATO"] = "PATATA CALIENTE",
 		["EVENT_NORMAL"] = "NORMAL",
-		["EVENT_GRAVITY"] = "GRAVEDAD CERO"
+		["EVENT_GRAVITY"] = "GRAVEDAD CERO",
+
+		-- SETTINGS
+		["SETTINGS_TITLE"] = "AJUSTES",
+		["SET_MUSIC"] = "MÚSICA",
+		["SET_SFX"] = "EFECTOS",
+		["SET_UI"] = "INTERFAZ"
 	},
 
 	["en"] = {
@@ -142,12 +148,18 @@ local languages = {
 		["ITEM_REGEN"] = "REGEN",
 		["ITEM_EFFICIENCY"] = "EFFICIENCY",
 		
-		-- [NUEVO] EVENTOS RULETA
+		-- RULETA
 		["EVENT_MAGMA"] = "MAGMA RAIN",
 		["EVENT_ICE"] = "ICE BLOCKS",
 		["EVENT_POTATO"] = "HOT POTATO",
 		["EVENT_NORMAL"] = "NORMAL",
-		["EVENT_GRAVITY"] = "ZERO GRAVITY"
+		["EVENT_GRAVITY"] = "ZERO GRAVITY",
+
+		-- SETTINGS
+		["SETTINGS_TITLE"] = "SETTINGS",
+		["SET_MUSIC"] = "MUSIC",
+		["SET_SFX"] = "SFX",
+		["SET_UI"] = "UI"
 	}
 }
 

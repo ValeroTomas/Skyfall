@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
 local GuiService = game:GetService("GuiService")
+local LocalizationService = game:GetService("LocalizationService") -- [NUEVO]
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -11,6 +12,7 @@ local sharedFolder = ReplicatedStorage:WaitForChild("shared")
 
 local FontManager = require(sharedFolder:WaitForChild("FontManager"))
 local SoundManager = require(sharedFolder:WaitForChild("SoundManager"))
+local Localization = require(sharedFolder:WaitForChild("Localization")) -- [NUEVO]
 
 -- EVENTOS
 local toggleSetEvent = ReplicatedStorage:WaitForChild("ToggleSettingsEvent")
@@ -19,6 +21,12 @@ local toggleInvEvent = ReplicatedStorage:WaitForChild("ToggleInventoryEvent")
 local toggleLogEvent = ReplicatedStorage:WaitForChild("ToggleChangelogEvent")
 
 local estadoValue = ReplicatedStorage:WaitForChild("EstadoRonda")
+
+-- [NUEVO] SETUP LOCALIZATION
+local playerLang = LocalizationService.RobloxLocaleId:sub(1, 2)
+local function getTxt(key, ...)
+	return Localization.get(key, playerLang, ...)
+end
 
 -------------------------------------------------------------------
 -- UTILS VISUALES
@@ -66,7 +74,7 @@ mainBlocker.Modal = true
 -- FRAME PRINCIPAL
 local mainFrame = Instance.new("Frame", screenGui)
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 450, 0, 320) -- Tamaño final objetivo
+mainFrame.Size = UDim2.new(0, 450, 0, 320)
 mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0); mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 mainFrame.BackgroundColor3 = Color3.new(1,1,1)
 mainFrame.Visible = false
@@ -77,9 +85,9 @@ Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
 applyGradient(mainFrame, Color3.fromRGB(45, 50, 55), Color3.fromRGB(30, 35, 40), 45)
 createDeepStroke(mainFrame, Color3.fromRGB(150, 150, 160), Color3.fromRGB(80, 80, 90), 3)
 
--- TÍTULO (Amarillo/Dorado)
+-- TÍTULO (Localizado)
 local title = Instance.new("TextLabel", mainFrame)
-title.Text = "AJUSTES"
+title.Text = getTxt("SETTINGS_TITLE") -- [CAMBIO]
 title.Size = UDim2.new(1, 0, 0, 50)
 title.Position = UDim2.new(0, 0, 0, 10)
 title.BackgroundTransparency = 1
@@ -119,7 +127,7 @@ Instance.new("UICorner", selectionCursor).CornerRadius = UDim.new(0, 8)
 -------------------------------------------------------------------
 -- SLIDER COMPONENTE
 -------------------------------------------------------------------
-local function createSlider(labelText, soundGroupName, layoutOrder)
+local function createSlider(localizationKey, soundGroupName, layoutOrder)
 	local soundGroup = SoundService:WaitForChild(soundGroupName)
 	
 	local wrapper = Instance.new("Frame", container)
@@ -129,11 +137,11 @@ local function createSlider(labelText, soundGroupName, layoutOrder)
 	wrapper.LayoutOrder = layoutOrder
 	wrapper.ZIndex = 7
 	
-	-- Etiqueta Izquierda
+	-- Etiqueta Izquierda (Localizada)
 	local label = Instance.new("TextLabel", wrapper)
 	label.Size = UDim2.new(0.25, 0, 1, 0)
 	label.BackgroundTransparency = 1
-	label.Text = labelText
+	label.Text = getTxt(localizationKey) -- [CAMBIO]
 	label.TextColor3 = Color3.new(1,1,1); label.TextXAlignment = Enum.TextXAlignment.Left
 	label.FontFace = FontManager.Get("Cartoon"); label.TextSize = 18 
 	label.ZIndex = 7
@@ -237,12 +245,13 @@ local function createSlider(labelText, soundGroupName, layoutOrder)
 	updateVisuals(currentVol)
 end
 
-createSlider("MÚSICA", "Music", 1)
-createSlider("EFECTOS", "SFX", 2)
-createSlider("INTERFAZ", "UI", 3)
+-- CREAR LOS SLIDERS CON KEYS DE LOCALIZACIÓN
+createSlider("SET_MUSIC", "Music", 1)
+createSlider("SET_SFX", "SFX", 2)
+createSlider("SET_UI", "UI", 3)
 
 -------------------------------------------------------------------
--- CONTROL (ANIMACIÓN CORREGIDA)
+-- CONTROL
 -------------------------------------------------------------------
 local isOpen = false
 
@@ -274,14 +283,11 @@ local function toggle()
 		
 		SoundManager.Play("ShopButton") 
 		
-		-- [CORRECCIÓN CRÍTICA DE ANIMACIÓN]
-		-- Ahora usa "Back" y tiempos idénticos a Shop/Inventory para sentirse igual
-		mainFrame.Size = UDim2.new(0, 400, 0, 270) -- Empieza un poco más chico (aprox 50px menos)
+		-- Animación Juicy Pop (Igual que Tienda)
+		mainFrame.Size = UDim2.new(0, 400, 0, 270)
 		mainBlocker.BackgroundTransparency = 1
 		
 		TweenService:Create(mainBlocker, TweenInfo.new(0.3), {BackgroundTransparency = 0.4}):Play()
-		
-		-- Tween de 0.2s con EasingStyle.Back (Golpe seco y rápido)
 		TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 450, 0, 320)}):Play()
 		
 		task.delay(0.1, function()
@@ -297,7 +303,6 @@ end
 toggleSetEvent.Event:Connect(toggle)
 mainBlocker.MouseButton1Click:Connect(toggle)
 
--- Exclusividad
 toggleShopEvent.Event:Connect(closeMenu)
 toggleInvEvent.Event:Connect(closeMenu)
 toggleLogEvent.Event:Connect(closeMenu)
